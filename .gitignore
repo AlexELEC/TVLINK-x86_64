@@ -1,0 +1,5 @@
+# prebuild Release binarys to provide
+/Release/
+
+# script
+/release.sh

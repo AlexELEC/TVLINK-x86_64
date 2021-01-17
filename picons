@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import os, sys
+import shutil
+import argparse
+import urllib.request
+
+root_dir = os.path.dirname(sys.argv[0])
+logo_dir = os.path.join(root_dir, 'logos')
+temp_dir = "/tmp"
+logo_tmp = os.path.join(temp_dir, 'logos')
+main_url = "https://epg.it999.ru/"
+
+def title_to_crc32(name):
+    from zlib import crc32
+    name = name.replace('°', '').replace('(','').replace(')','').replace('*','').replace('.','').replace('&','')
+    name = ''.join(name.split())
+    name = name.upper()
+    name = crc32(name.encode('utf-8')) & 0xFFFFFFFF
+    return str("%08X" % name)
+
+parser = argparse.ArgumentParser(description='Download and convert picons for TVLINK!')
+parser.add_argument("-n", "--noconv", action='store_true', help="Don't convert picon names")
+parser.add_argument("-c", "--color", default="transparent",
+                    choices=["dark", "transparent"],
+                    type=str, help="Picons color (default: transparent)")
+args = parser.parse_args()
+color = args.color
+
+if color == "transparent":
+    zip_url = main_url + "it999_transparent_logo.zip"
+    zip_path = os.path.join(temp_dir, 'it999_transparent_logo.zip')
+    uzip_patch = os.path.join(logo_tmp, 'it999_transparent_220x132')
+else:
+    zip_url = main_url + "it999_dark_logo.zip"
+    zip_path = os.path.join(temp_dir, 'it999_dark_logo.zip')
+    uzip_patch = os.path.join(logo_tmp, 'it999_dark_165x165')
+
+print("\nDownload file: {} ...".format(zip_url) )
+try:
+    urllib.request.urlretrieve(zip_url, zip_path)
+except:
+    print("\nError download file: {}".format(zip_url) )
+    exit()
+
+if os.path.isdir(logo_tmp):
+    shutil.rmtree(logo_tmp, ignore_errors=True)
+
+print("Unzip file: {} ...".format(zip_path.replace("/tmp/", '') ) )
+from zipfile import ZipFile
+zf = ZipFile(zip_path, 'r')
+zf.extractall(logo_tmp)
+zf.close()
+
+print("Start converting files ...")
+
+for org_file in os.listdir(uzip_patch):
+    if org_file.endswith(".png"):
+        file_source = os.path.join(uzip_patch, org_file)
+        if args.noconv:
+            file_dest = os.path.join(logo_dir, org_file)
+        else:
+            org_name = org_file.replace(".png", '')
+            org_name = org_name.strip()
+            crc_name = title_to_crc32(org_name) + ".png"
+            file_dest = os.path.join(logo_dir, crc_name)
+        shutil.move(file_source, file_dest)
+        #print ("{} => {}".format(org_file, crc_name) )
+
+if os.path.isdir(logo_tmp): shutil.rmtree(logo_tmp, ignore_errors=True)
+if os.path.isfile(zip_path): os.remove(zip_path)
+
+print("Done!\n")
