@@ -67,6 +67,10 @@ INSERT INTO settings (name, value) VALUES ('chunk_size_hls', NULL);
 INSERT INTO settings (name, value) VALUES ('epg_sort', NULL);
 INSERT INTO settings (name, value) VALUES ('epg_enabled', NULL);
 INSERT INTO settings (name, value) VALUES ('epg_period', NULL);
+INSERT INTO settings (name, value) VALUES ('check_time', NULL);
+INSERT INTO settings (name, value) VALUES ('check_net_ip', NULL);
+INSERT INTO settings (name, value) VALUES ('extm3u', NULL);
+INSERT INTO settings (name, value) VALUES ('extinf', NULL);
 
 COMMIT TRANSACTION;
 PRAGMA foreign_keys = on;

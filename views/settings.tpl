@@ -58,6 +58,15 @@
           <span class="slider round"></span></label>
         </td>
       </tr>
+      <!-- Check internet IP -->
+      <tr>
+        <td>
+          <label class="form-control">Check internet IP</label>
+        </td>
+        <td>
+          <input id="check_ip" class="form-control" type="text" value="{{check_net_ip}}" onchange="server.set_checkip()" >
+        </td>
+      </tr>
 
     </table>
 
@@ -95,18 +104,25 @@
           <span class="slider round"></span></label>
         </td>
       </tr>
+      <!-- Check internet timeout -->
+      <tr>
+        <td >
+          <label class="form-control">Check internet max time (sec)</label>
+        </td>
+        <td>
+          <select id="check_time" class="form-control" onchange="server.setting_options('check_time')" >
+            % for chtime in [3,5,8,10,15,20,25,30,35,40,45,50,60]:
+            <option {{'selected' if chtime == int(check_time) else ""}} >{{chtime}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
 
     </table>
 
   </div>
 
   <p>&nbsp;</p>
-  <form class="form-inline" >
-    <label class="form-control"><b>Check internet IP:</b></label>
-    <input id="check_ip" size="50%" class="form-control" value="{{check_net_ip}}" onchange="server.set_checkip()">
-  </form>
-  <p>&nbsp;</p>
-
   <h4><b>M3U playlist settings (optional):</b></h4>
   <p>&nbsp;</p>
 
