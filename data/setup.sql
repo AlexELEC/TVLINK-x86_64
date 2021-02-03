@@ -71,6 +71,7 @@ INSERT INTO settings (name, value) VALUES ('check_time', NULL);
 INSERT INTO settings (name, value) VALUES ('check_net_ip', NULL);
 INSERT INTO settings (name, value) VALUES ('extm3u', NULL);
 INSERT INTO settings (name, value) VALUES ('extinf', NULL);
+INSERT INTO settings (name, value) VALUES ('exclude_title', NULL);
 
 COMMIT TRANSACTION;
 PRAGMA foreign_keys = on;

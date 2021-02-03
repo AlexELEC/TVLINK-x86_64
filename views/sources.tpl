@@ -28,6 +28,12 @@
             server.delEPG_map();
         }
     }
+    function delEpgSource(epgName) {
+        if (confirm(epgName + ": delete this EPG source?")) {
+            server.del_epg_source(epgName);
+            location.reload(true);
+        }
+    }
   </script>
 
   <!-- M3U Playlists -->
@@ -48,7 +54,7 @@
   % if checked_m3u == 1:
   <p>&nbsp;</p>
 
-  <form id="auth_form" class="form-inline">
+  <form id="add_m3u_form" class="form-inline">
     <button id="btn_add_m3u" type="button" onClick="server.add_m3u_source()">Add playlist</button>
   </form>
   
@@ -394,7 +400,86 @@
   <p>&nbsp;</p>
   % end
 
-  <form class="form-inline" style={{"display:block" if checked_epg_static == 1 else "display:none"}}>
+  <!-- EPG User sources -->
+
+  % include('add-epg.tpl')
+
+  % checked_epg_user = in_grps_epg.get('User')
+  <table width="100%">
+    <tr>
+      <td width="20%"><b>EPG Custom sources:</b></td>
+      <td><label class="switch">
+        <input id="epgbox_user_src" type="checkbox" onClick="server.epg_user_src_grp()" {{'checked="checked"' if checked_epg_user == 1 else ""}} >
+        <span class="slider round"></span> </label>
+      </td>
+    </tr>
+  </table>
+
+  % if checked_epg_user == 1:
+  <p>&nbsp;</p>
+  <form id="epg_user_form" class="form-inline">
+    <button id="btn_add_epg" type="button" onClick="server.add_epg_source()">Add EPG</button>
+  </form>
+  <p>&nbsp;</p>
+  % end
+
+  <table class="table" width="100%" border="2" id="epg_user_table" style={{"display:block" if checked_epg_user == 1 and is_epg else "display:none"}} >
+
+    {{!epg_tbl_head}}
+
+    <!-- epg_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-xmlDate, 5-updDate, 6-srcUrl, 7-noDate, 8-links ] -->
+    % for row in in_srcs_epg:
+    % if row[2] == 'User':
+    <tr>
+      <!-- Name -->
+      % ids = 'hrf_' + row[0]
+      <td>
+        <a id={{ids}} {{'href=/epginputs/'+row[0] if row[1] == 1 and row[8] > 0 else ""}} >{{row[0]}}</a>
+        <button class="btn" onClick="server.show_epg_info('{{row[0]}}')" ><i class="fa fa-info-circle" style="font-size:26px;color:blue" ></i></button>
+        <button class="btn" onClick="delEpgSource('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
+      </td>
+      <!-- Enable -->
+      <td><label class="switch">
+        % ids = 'src_' + row[0]
+        <input id={{ids}} type="checkbox" onClick="server.click_switch_epg('{{ids}}')" {{'checked="checked"' if row[1] == 1 else ""}} >
+        <span class="slider round"></span></label>
+      </td>
+      <!-- Prio -->
+      % ids = 'pri_' + row[0]
+      <td><select id={{ids}} class="form-control" onchange="server.change_select_epg('{{ids}}')" >
+        % for prio in range(1,21):
+          <option {{'selected' if prio == row[3] else ""}} >{{prio}}</option>
+        % end
+        </select>
+      </td>
+      <!-- XMLTV file Date -->
+      % ids = 'fdt_' + row[0]
+      <td>
+        <label id={{ids}} >{{row[4]}}</label>
+      </td>
+      <!-- Update -->
+      % ids_bt = 'ubt_' + row[0]
+      % ids_lb = 'ulb_' + row[0]
+      <td>
+        <button class="btn" onClick="server.upd_epgsrc_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh"></i></button>
+        <label id={{ids_lb}} >{{row[5]}}</label>
+      </td>
+      <!-- Channels in EPG -->
+      % ids = 'lks_' + row[0]
+      <td>
+        <label id={{ids}} >{{row[8]}}</label>
+      </td>
+    </tr>
+    % end
+    % end
+  </table>
+
+  % if checked_epg_user == 1:
+  <p>&nbsp;</p>
+  % end
+  <p>&nbsp;</p>
+
+  <form class="form-inline" style={{"display:block" if checked_epg_static == 1 or checked_epg_user == 1 else "display:none"}}>
     <button id="btn_create_epg" type="button" onClick="server.createEPG()">Create EPG</button>
     <button id="btn_clean_epg" type="button" style="margin-left:2%;" onClick="delEPG_map()">Clean manual EPG mapping</button>
   </form>

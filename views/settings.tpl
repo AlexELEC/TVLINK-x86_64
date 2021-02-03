@@ -123,6 +123,18 @@
   </div>
 
   <p>&nbsp;</p>
+  <label><b>Empty channel link</b></label>
+  <form class="form-inline" >
+    <input id="empty_chlink" class="form-control" size="100%" value="{{empty_chlink}}" onchange="server.set_empty_chlink()">
+  </form>
+
+  <p>&nbsp;</p>
+  <label><b>Exclude these lines from channel names when mapping (comma separated)</b></label>
+  <form class="form-inline" >
+    <input id="exclude_title" class="form-control" size="100%" value="{{exclude_title}}" onchange="server.set_exclude_title()">
+  </form>
+
+  <p>&nbsp;</p>
   <h4><b>M3U playlist settings (optional):</b></h4>
   <p>&nbsp;</p>
 

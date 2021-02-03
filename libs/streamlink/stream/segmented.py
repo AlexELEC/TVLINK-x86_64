@@ -127,6 +127,7 @@ class SegmentedStreamWriter(Thread):
                         'vod/deny',
                         '/empty.ts',
                         '/drop.ts',
+                        '/test_end.ts',
                         '/disabled/',
                         'video/money',
                         'errors/banned',

@@ -1,8 +1,12 @@
 import logging
 import pkgutil
 from collections import OrderedDict
+from functools import lru_cache
+from socket import AF_INET, AF_INET6
 
 import requests
+import requests.packages.urllib3.util.connection as urllib3_connection
+from requests.packages.urllib3.util.connection import allowed_gai_family
 
 from streamlink import __version__, plugins
 from streamlink.compat import is_win32
@@ -10,7 +14,7 @@ from streamlink.exceptions import NoPluginError, PluginError
 from streamlink.logger import StreamlinkLogger
 from streamlink.options import Options
 from streamlink.plugin import Plugin, api
-from streamlink.utils import load_module, memoize, update_scheme
+from streamlink.utils import load_module, update_scheme
 from streamlink.utils.l10n import Localization
 
 # Ensure that the Logger class returned is Streamslink's for using the API (for backwards compatibility)
@@ -29,6 +33,9 @@ class Streamlink:
     def __init__(self, options=None):
         self.http = api.HTTPSession()
         self.options = Options({
+            "interface": None,
+            "ipv4": False,
+            "ipv6": False,
             "hds-live-edge": 10.0,
             "hds-segment-attempts": 3,
             "hds-segment-threads": 1,
@@ -84,7 +91,13 @@ class Streamlink:
         **Available options**:
 
         ======================== =========================================
-        hds-live-edge            ( float) Specify the time live HDS
+        interface                (str) Set the network interface,
+                                 default: ``None``
+        ipv4                     (bool) Resolve address names to IPv4 only.
+                                 This option overrides ipv6, default: ``False``
+        ipv6                     (bool) Resolve address names to IPv6 only.
+                                 This option overrides ipv4, default: ``False``
+        hds-live-edge            (float) Specify the time live HDS
                                  streams will start from the edge of
                                  stream, default: ``10.0``
 
@@ -243,7 +256,29 @@ class Streamlink:
 
         """
 
-        if key == "http-proxy":
+        if key == "interface":
+            for scheme, adapter in self.http.adapters.items():
+                if scheme not in ("http://", "https://"):
+                    continue
+                if not value:
+                    adapter.poolmanager.connection_pool_kw.pop("source_address")
+                else:
+                    adapter.poolmanager.connection_pool_kw.update(
+                        # https://docs.python.org/3/library/socket.html#socket.create_connection
+                        source_address=(value, 0)
+                    )
+            self.options.set(key, None if not value else value)
+
+        elif key == "ipv4" or key == "ipv6":
+            self.options.set(key, value)
+            if value:
+                self.options.set("ipv6" if key == "ipv4" else "ipv4", False)
+                urllib3_connection.allowed_gai_family = \
+                    (lambda: AF_INET) if key == "ipv4" else (lambda: AF_INET6)
+            else:
+                urllib3_connection.allowed_gai_family = allowed_gai_family
+
+        elif key == "http-proxy":
             self.http.proxies["http"] = update_scheme("http://", value)
             if "https" not in self.http.proxies:
                 self.http.proxies["https"] = update_scheme("http://", value)
@@ -338,7 +373,7 @@ class Streamlink:
             plugin = self.plugins[plugin]
             return plugin.get_option(key)
 
-    @memoize
+    @lru_cache(maxsize=128)
     def resolve_url(self, url, follow_redirect=True):
         """Attempts to find a plugin that can use this URL.
 

@@ -9,6 +9,7 @@
         <div class="modal-body">
           <p>Playlist name:</p>
           <input id="m3u_name" class="form-control" style="width:30%" type="text" value="" onClick="this.select();">
+          <p>&nbsp;</p>
           <p>Playlist path:</p>
           <input id="m3u_path" class="form-control" type="text" value="" onClick="this.select();">
         </div>
