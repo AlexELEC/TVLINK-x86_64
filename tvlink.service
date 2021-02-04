@@ -10,6 +10,7 @@ TimeoutStopSec=5
 Restart=always
 RestartSec=2
 StartLimitInterval=0
+LimitNOFILE=16384
 
 [Install]
 WantedBy=multi-user.target
