@@ -34,6 +34,12 @@
             location.reload(true);
         }
     }
+    function delProfile(usrName) {
+        if (confirm(usrName + ": delete this Profile?")) {
+            server.del_profile(usrName);
+            location.reload(true);
+        }
+    }
   </script>
 
   <!-- M3U Playlists -->
@@ -483,6 +489,45 @@
     <button id="btn_create_epg" type="button" onClick="server.createEPG()">Create EPG</button>
     <button id="btn_clean_epg" type="button" style="margin-left:2%;" onClick="delEPG_map()">Clean manual EPG mapping</button>
   </form>
+
+  <p>&nbsp;</p>
+  <p>&nbsp;</p>
+
+  <!-- User Profiles -->
+
+  % include('add-profile.tpl')
+
+  <h4><b>User Profiles</b></h4>
+  <p>&nbsp;</p>
+
+  <form id="add_user" class="form-inline">
+    <button id="btn_add_user" type="button" onClick="server.add_user()">Add user</button>
+  </form>
+  
+  <p>&nbsp;</p>
+
+  <table class="table" width="100%" border="2" id="usr_table" style={{"display:block" if is_users else "display:none"}} >
+
+    <tr>
+      <th width="5%" >Name</th>
+      <th width="10%" >Comment</th>
+    </tr>
+
+    <!-- usr_profiles [ 0-usrName, 1-usrText ] -->
+    % for row in in_users:
+    <tr>
+      <!-- Name -->
+      <td>
+        <a href="/profile/{{row[0]}}">{{row[0]}}    </a>
+        <button class="btn" onClick="delProfile('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
+      </td>
+      <!-- Comment -->
+      <td>
+        <label>{{row[1]}}</label>
+      </td>
+    </tr>
+    % end
+  </table>
 
   <p>&nbsp;</p>
   <p>&nbsp;</p>
