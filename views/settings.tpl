@@ -123,6 +123,70 @@
   </div>
 
   <p>&nbsp;</p>
+  <b>Periodic reload settings:</b>
+  <p>&nbsp;</p>
+  <div style="overflow:hidden;_zoom:1">
+  <table class="table" border="2" style="float:left;width:49%;display:block" >
+
+      {{!tbl_head}}
+
+      <!-- Reload by interval -->
+      <tr>
+        <td>
+          <label class="form-control">Reload by interval</label>
+        </td>
+        <td><label class="switch">
+          <input id="swt_period" type="checkbox" onClick="server.reload_period('period')" {{'checked="checked"' if swt_period == 'true' else ""}} >
+          <span class="slider round"></span></label>
+        </td>
+      </tr>
+      <!-- Reload once a day -->
+      <tr>
+        <td>
+          <label class="form-control">Reload once a day</label>
+        </td>
+        <td><label class="switch">
+          <input id="swt_once" type="checkbox" onClick="server.reload_period('once')" {{'checked="checked"' if swt_once == 'true' else ""}} >
+          <span class="slider round"></span></label>
+        </td>
+      </tr>
+  </table>
+
+  <table class="table" border="2" style="float:right;width:49%;display:block" >
+
+    {{!tbl_head}}
+
+      <!-- Reload by interval (hours) -->
+      <tr>
+        <td>
+          <label class="form-control">Reload every hours</label>
+        </td>
+        <td>
+          <select id="reset_period" class="form-control" onchange="server.setting_options('reset_period')" >
+            % for rst in [1,2,3,4,5,6,7,8,9,10,12,14,18,20,24]:
+            <option {{'selected' if rst == int(reset_period) else ""}} >{{rst}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
+      <!-- Reload once a day (time) -->
+      <tr>
+        <td>
+          <label class="form-control">Reload at o'clock</label>
+        </td>
+        <td>
+          <select id="reset_once" class="form-control" onchange="server.setting_options('reset_once')" >
+            % for once in range(0,24):
+            <option {{'selected' if once == int(reset_once) else ""}} >{{once}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
+
+  </table>
+  </div>
+
+  <p>&nbsp;</p>
   <label><b>Empty channel link</b></label>
   <form class="form-inline" >
     <input id="empty_chlink" class="form-control" size="100%" value="{{empty_chlink}}" onchange="server.set_empty_chlink()">
