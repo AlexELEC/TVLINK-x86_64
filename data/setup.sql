@@ -18,22 +18,12 @@ INSERT INTO epg_sources (srcName, enabled, grpName, prio, xmlDate, updDate, srcU
 -- Table: input_groups
 DROP TABLE IF EXISTS input_groups;
 CREATE TABLE input_groups (grpName BLOB, enabled BOOLEAN DEFAULT (0));
-INSERT INTO input_groups (grpName, enabled) VALUES ('Authorized', 0);
-INSERT INTO input_groups (grpName, enabled) VALUES ('Sites', 0);
+INSERT INTO input_groups (grpName, enabled) VALUES ('Addons', 0);
 INSERT INTO input_groups (grpName, enabled) VALUES ('Playlists', 0);
 
 -- Table: input_sources
 DROP TABLE IF EXISTS input_sources;
 CREATE TABLE input_sources (srcName BLOB UNIQUE, enabled BOOLEAN DEFAULT (0), grpName BLOB, prio INT DEFAULT (10) NOT NULL, prioMode BOOLEAN DEFAULT (0), addCh BOOLEAN DEFAULT (0), updPeriod INT DEFAULT (8) NOT NULL, updDate BLOB, links INT DEFAULT (0) NOT NULL, srcUrl BLOB);
-INSERT INTO input_sources (srcName, enabled, grpName, prio, prioMode, addCh, updPeriod, updDate, links, srcUrl) VALUES ('Grand', 0, 'Authorized', 10, 0, 0, 8, NULL, 0, NULL);
-INSERT INTO input_sources (srcName, enabled, grpName, prio, prioMode, addCh, updPeriod, updDate, links, srcUrl) VALUES ('Middle', 0, 'Authorized', 10, 0, 0, 8, NULL, 0, NULL);
-INSERT INTO input_sources (srcName, enabled, grpName, prio, prioMode, addCh, updPeriod, updDate, links, srcUrl) VALUES ('Small', 0, 'Authorized', 10, 0, 0, 8, NULL, 0, NULL);
-INSERT INTO input_sources (srcName, enabled, grpName, prio, prioMode, addCh, updPeriod, updDate, links, srcUrl) VALUES ('Telehub', 0, 'Sites', 10, 0, 0, 8, NULL, 0, NULL);
-INSERT INTO input_sources (srcName, enabled, grpName, prio, prioMode, addCh, updPeriod, updDate, links, srcUrl) VALUES ('TvFresh', 0, 'Sites', 10, 0, 0, 8, NULL, 0, NULL);
-INSERT INTO input_sources (srcName, enabled, grpName, prio, prioMode, addCh, updPeriod, updDate, links, srcUrl) VALUES ('StandartTV', 0, 'Sites', 10, 0, 0, 8, NULL, 0, NULL);
-INSERT INTO input_sources (srcName, enabled, grpName, prio, prioMode, addCh, updPeriod, updDate, links, srcUrl) VALUES ('Voka', 0, 'Sites', 10, 0, 0, 8, NULL, 0, NULL);
-INSERT INTO input_sources (srcName, enabled, grpName, prio, prioMode, addCh, updPeriod, updDate, links, srcUrl) VALUES ('AdultTV', 0, 'Sites', 10, 0, 0, 8, NULL, 0, NULL);
-INSERT INTO input_sources (srcName, enabled, grpName, prio, prioMode, addCh, updPeriod, updDate, links, srcUrl) VALUES ('HochuTV', 0, 'Sites', 10, 0, 0, 8, NULL, 0, NULL);
 
 -- Table: live_links
 DROP TABLE IF EXISTS live_links;
@@ -45,8 +35,6 @@ CREATE TABLE settings (name BLOB, value BLOB);
 INSERT INTO settings (name, value) VALUES ('ip', NULL);
 INSERT INTO settings (name, value) VALUES ('port', NULL);
 INSERT INTO settings (name, value) VALUES ('auto_ip', NULL);
-INSERT INTO settings (name, value) VALUES ('ae_user', NULL);
-INSERT INTO settings (name, value) VALUES ('ae_pass', NULL);
 INSERT INTO settings (name, value) VALUES ('ch_sort', NULL);
 INSERT INTO settings (name, value) VALUES ('upd_ch_start', NULL);
 INSERT INTO settings (name, value) VALUES ('upd_ch_list', NULL);
