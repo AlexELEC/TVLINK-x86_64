@@ -8,7 +8,12 @@
         </div>
         <div class="modal-body">
           <p>Addon name:</p>
-          <input id="addon_name" class="form-control" style="width:30%" type="text" value="" onClick="this.select();">
+          <input id="addon_name" list="plugins" name="addons" class="form-control" style="width:30%" type="text" value="" onClick="this.select();">
+          <datalist id="plugins">
+            % for row in in_addons:
+              <option value="{{row}}">
+            % end
+          </datalist>
         </div>
         <div class="modal-footer"> 
           <button type="button" class="btn btn-primary" onClick="server.create_new_addon()" >Save changes</button>
