@@ -45,7 +45,11 @@
           <label class="form-control">Playlist IP</label>
         </td>
         <td>
-          <input id="pls_ip" class="form-control" type="text" value="{{IP}}" onchange="server.set_ip()" >
+          <select id="pls_ip" class="form-control" onchange="server.set_ip()" >
+            % for ip in ip_list:
+              <option {{'selected' if ip == IP else ""}} >{{ip}}</option>
+            % end
+          </select>
         </td>
       </tr>
       <!-- Auto IP -->
