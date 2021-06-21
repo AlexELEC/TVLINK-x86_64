@@ -12,7 +12,7 @@
 
   <script>
     $(document).ready(function(){
-      setTimeout(function(){window.location.replace("/settings");}, 8000);
+      setTimeout(function(){window.location.replace("/settings");}, 12000);
     });
   </script>
 

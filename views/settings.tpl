@@ -407,7 +407,7 @@
     <table class="table" border="2" style="float:right;width:49%;display:block" >
 
       {{!tbl_head}}
-      % epg_period_values = [3,5,8,10,12,24,36,48,72,96,120,168]
+      % epg_period_values = [3,5,8,10,12,24,36,48,72,96,120,'1 (once night)', '2 (once night)', '3 (once night)', '4 (once night)', '5 (once night)']
 
       <!-- EPG period -->
       <tr>
@@ -417,7 +417,7 @@
         <td>
           <select id="epg_period" class="form-control" onchange="server.setting_options('epg_period')" >
             % for tpr in epg_period_values:
-            <option {{'selected' if tpr == int(epg_period) else ""}} >{{tpr}}</option>
+            <option {{'selected' if str(tpr) == str(epg_period) else ""}} >{{tpr}}</option>
             % end
           </select>
         </td>
