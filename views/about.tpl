@@ -1,14 +1,7 @@
 <!DOCTYPE html>
 <html>
 
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/styles/font-awesome/css/font-awesome.min.css" type="text/css">
-  <link rel="stylesheet" href="/styles/bootstrap-4.3.1.css">
-  <link rel="stylesheet" href="/styles/styles.css" type="text/css">
-  <link rel="shortcut icon" href="/styles/favicon.ico">
-</head>
+% include('head.tpl')
 
 <body>
   % include('navbar-top.tpl')
@@ -18,7 +11,9 @@
     <h4 id="version"><b>TVLINK version: {{version}}</b></h4>
     <p>&nbsp;</p>
     % if is_upd:
-      <em>Version <b>{{git_ver}}</b> is available. <a href="/update">Update program...</a></em>
+      <em id="upd_info">Version <b>{{git_ver}}</b> is available. You can update the program!</em>
+      <p></p>
+      <button id="btn_upd" class="btn" onClick="server.upd_tvlink()" ><i id="upd_spin" class="fa fa-refresh fa-3x fa-fw"></i></button>
       <p>&nbsp;</p>
     % end
     <p><a href="https://alexelec.tv"><img src="/styles/logo.png" style="border:0" ></a></p>

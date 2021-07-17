@@ -77,6 +77,7 @@
       <th width="2%" >Prio</th>
        <!-- <th width="2%" >Prio mode</th> -->
       <th width="2%" >Add channels</th>
+      <th width="2%" >New channels</th>
       <th width="2%" >Update period</th>
       <th width="3%" >Update</th>
       <th width="3%" >Links</th>
@@ -85,7 +86,7 @@
 
     {{!tbl_head}}
 
-    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-prioMode, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl ] -->
+    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-prioMode, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh ] -->
     % for row in in_srcs:
     % if row[2] == 'Playlists':
     <tr>
@@ -114,6 +115,12 @@
       <td><label class="switch">
         % ids = 'ach_' + row[0]
         <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[5] == 1 else ""}} >
+        <span class="slider round"></span></label>
+      </td>
+      <!-- New channels -->
+      <td><label class="switch">
+        % ids = 'new_' + row[0]
+        <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[10] == 1 else ""}} >
         <span class="slider round"></span></label>
       </td>
       <!-- Update period -->
@@ -175,7 +182,7 @@
 
     {{!tbl_head}}
 
-    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-prioMode, 5-addCh, 6-updPeriod, 7-updDate, 8-links ] -->
+    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-prioMode, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh ] -->
     % for row in in_srcs:
     % if row[2] == 'Addons':
     <tr>
@@ -203,6 +210,12 @@
       <td><label class="switch">
         % ids = 'ach_' + row[0]
         <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[5] == 1 else ""}} >
+        <span class="slider round"></span></label>
+      </td>
+      <!-- New channels -->
+      <td><label class="switch">
+        % ids = 'new_' + row[0]
+        <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[10] == 1 else ""}} >
         <span class="slider round"></span></label>
       </td>
       <!-- Update period -->

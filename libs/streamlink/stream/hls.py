@@ -1,27 +1,33 @@
 import logging
 import re
 import struct
-from collections import OrderedDict, defaultdict, namedtuple
+from collections import OrderedDict, defaultdict
+from concurrent.futures import Future
 from threading import Event
+from typing import List, NamedTuple, Optional, Union
 from urllib.parse import urlparse
 
+# noinspection PyPackageRequirements
 from Crypto.Cipher import AES
+# noinspection PyPackageRequirements
 from Crypto.Util.Padding import unpad
+from requests import Response
 from requests.exceptions import ChunkedEncodingError
 
 from streamlink.exceptions import StreamError
 from streamlink.stream import hls_playlist
 from streamlink.stream.ffmpegmux import FFMPEGMuxer, MuxedStream
+from streamlink.stream.hls_playlist import Key, M3U8, Map, Segment
 from streamlink.stream.http import HTTPStream
 from streamlink.stream.segmented import (SegmentedStreamReader, SegmentedStreamWorker, SegmentedStreamWriter)
-from streamlink.utils import LazyFormatter
+from streamlink.utils import LRUCache, LazyFormatter
 
 log = logging.getLogger(__name__)
-Sequence = namedtuple("Sequence", "num segment")
 
 
-def num_to_iv(n):
-    return struct.pack(">8xq", n)
+class Sequence(NamedTuple):
+    num: int
+    segment: Segment
 
 
 class HLSStreamWriter(SegmentedStreamWriter):
@@ -30,9 +36,10 @@ class HLSStreamWriter(SegmentedStreamWriter):
         kwargs["retries"] = options.get("hls-segment-attempts")
         kwargs["threads"] = options.get("hls-segment-threads")
         kwargs["timeout"] = options.get("hls-segment-timeout")
-        SegmentedStreamWriter.__init__(self, reader, *args, **kwargs)
+        super().__init__(reader, *args, **kwargs)
 
         self.byterange_offsets = defaultdict(int)
+        self.map_cache: LRUCache[Sequence.segment.map.uri, Future] = LRUCache(kwargs["threads"])
         self.key_data = None
         self.key_uri = None
         self.key_uri_override = options.get("hls-segment-key-uri")
@@ -45,7 +52,11 @@ class HLSStreamWriter(SegmentedStreamWriter):
             segments = "|".join(map(re.escape, ignore_names))
             self.ignore_names = re.compile(rf"(?:{segments})\.ts", re.IGNORECASE)
 
-    def create_decryptor(self, key, sequence):
+    @staticmethod
+    def num_to_iv(n: int) -> bytes:
+        return struct.pack(">8xq", n)
+
+    def create_decryptor(self, key: Key, num: int) -> AES:
         if key.method != "AES-128":
             raise StreamError("Unable to decrypt cipher {0}", key.method)
 
@@ -73,53 +84,83 @@ class HLSStreamWriter(SegmentedStreamWriter):
             self.key_data = res.content
             self.key_uri = key_uri
 
-        iv = key.iv or num_to_iv(sequence)
+        iv = key.iv or self.num_to_iv(num)
 
         # Pad IV if needed
         iv = b"\x00" * (16 - len(iv)) + iv
 
         return AES.new(self.key_data, AES.MODE_CBC, iv)
 
-    def create_request_params(self, sequence):
+    def create_request_params(self, segment: Union[Segment, Map]):
         request_params = dict(self.reader.request_params)
         headers = request_params.pop("headers", {})
 
-        if sequence.segment.byterange:
-            bytes_start = self.byterange_offsets[sequence.segment.uri]
-            if sequence.segment.byterange.offset is not None:
-                bytes_start = sequence.segment.byterange.offset
+        if segment.byterange:
+            bytes_start = self.byterange_offsets[segment.uri]
+            if segment.byterange.offset is not None:
+                bytes_start = segment.byterange.offset
 
-            bytes_len = max(sequence.segment.byterange.range - 1, 0)
+            bytes_len = max(segment.byterange.range - 1, 0)
             bytes_end = bytes_start + bytes_len
-            headers["Range"] = "bytes={0}-{1}".format(bytes_start, bytes_end)
-            self.byterange_offsets[sequence.segment.uri] = bytes_end + 1
+            headers["Range"] = f"bytes={bytes_start}-{bytes_end}"
+            self.byterange_offsets[segment.uri] = bytes_end + 1
 
         request_params["headers"] = headers
 
         return request_params
 
-    def fetch(self, sequence, retries=None):
-        if self.closed or not retries:
+    def put(self, sequence: Sequence):
+        if self.closed:
             return
 
+        if sequence is None:
+            self.queue(None, None)
+        else:
+            # always queue the segment's map first if it exists
+            if sequence.segment.map is not None:
+                future = self.map_cache.get(sequence.segment.map.uri)
+                # use cached map request if not a stream discontinuity
+                # don't fetch multiple times when map request of previous segment is still pending
+                if future is None or sequence.segment.discontinuity:
+                    future = self.executor.submit(self.fetch_map, sequence)
+                    self.map_cache.set(sequence.segment.map.uri, future)
+                self.queue(future, sequence, True)
+
+            # regular segment request
+            future = self.executor.submit(self.fetch, sequence)
+            self.queue(future, sequence, False)
+
+    def fetch(self, sequence: Sequence) -> Optional[Response]:
         try:
-            request_params = self.create_request_params(sequence)
+            return self._fetch(sequence.segment, self.stream_data and not sequence.segment.key)
+        except StreamError as err:  # pragma: no cover
+            log.error(f"Failed to fetch segment {sequence.num}: {err}")
 
-            return self.session.http.get(sequence.segment.uri,
-                                         stream=(self.stream_data
-                                                 and not sequence.segment.key),
-                                         timeout=self.timeout,
-                                         exception=StreamError,
-                                         retries=self.retries,
-                                         **request_params)
-        except StreamError as err:
-            log.error(f"Failed to open segment {sequence.num}: {err}")
+    def fetch_map(self, sequence: Sequence) -> Optional[Response]:
+        try:
+            return self._fetch(sequence.segment.map, self.stream_data and not sequence.segment.key)
+        except StreamError as err:  # pragma: no cover
+            log.error(f"Failed to fetch map for segment {sequence.num}: {err}")
+
+    def _fetch(self, segment: Union[Segment, Map], stream: bool) -> Optional[Response]:
+        if self.closed or not self.retries:  # pragma: no cover
             return
 
-    def should_filter_sequence(self, sequence):
+        request_params = self.create_request_params(segment)
+
+        return self.session.http.get(
+            segment.uri,
+            stream=stream,
+            timeout=self.timeout,
+            exception=StreamError,
+            retries=self.retries,
+            **request_params
+        )
+
+    def should_filter_sequence(self, sequence: Sequence) -> bool:
         return self.ignore_names and self.ignore_names.search(sequence.segment.uri) is not None
 
-    def write(self, sequence, *args, **kwargs):
+    def write(self, sequence: Sequence, *args, **kwargs):
         if not self.should_filter_sequence(sequence):
             try:
                 return self._write(sequence, *args, **kwargs)
@@ -134,11 +175,10 @@ class HLSStreamWriter(SegmentedStreamWriter):
             log.info("Filtering out segments and pausing stream output")
             self.reader.filter_event.clear()
 
-    def _write(self, sequence, res):
+    def _write(self, sequence: Sequence, res: Response, is_map: bool):
         if sequence.segment.key and sequence.segment.key.method != "NONE":
             try:
-                decryptor = self.create_decryptor(sequence.segment.key,
-                                                  sequence.num)
+                decryptor = self.create_decryptor(sequence.segment.key, sequence.num)
             except StreamError as err:
                 log.error(f"Failed to create decryptor: {err}")
                 self.close()
@@ -165,19 +205,22 @@ class HLSStreamWriter(SegmentedStreamWriter):
                 log.error(f"Download of segment {sequence.num} failed")
                 return
 
-        log.debug(f"Download of segment {sequence.num} complete")
+        if is_map:
+            log.debug(f"Segment initialization {sequence.num} complete")
+        else:
+            log.debug(f"Segment {sequence.num} complete")
 
 
 class HLSStreamWorker(SegmentedStreamWorker):
     def __init__(self, *args, **kwargs):
-        SegmentedStreamWorker.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.stream = self.reader.stream
 
         self.playlist_changed = False
-        self.playlist_end = None
-        self.playlist_sequence = -1
-        self.playlist_sequences = []
-        self.playlist_reload_time = 12
+        self.playlist_end: Optional[Sequence.num] = None
+        self.playlist_sequence: int = -1
+        self.playlist_sequences: List[Sequence] = []
+        self.playlist_reload_time: float = 12
         self.live_edge = self.session.options.get("hls-live-edge")
         self.playlist_reload_retries = self.session.options.get("hls-playlist-reload-attempts")
         self.playlist_reload_time_override = self.session.options.get("hls-playlist-reload-time")
@@ -240,7 +283,7 @@ class HLSStreamWorker(SegmentedStreamWorker):
         if sequences:
             self.process_sequences(playlist, sequences)
 
-    def _playlist_reload_time(self, playlist, sequences):
+    def _playlist_reload_time(self, playlist: M3U8, sequences: List[Sequence]) -> float:
         reload_default_time = (playlist.target_duration or len(sequences) > 0 and sequences[-1].segment.duration)
 
         if self.playlist_reload_time_override == "segment":
@@ -258,7 +301,7 @@ class HLSStreamWorker(SegmentedStreamWorker):
 
         return reload_default_time
 
-    def process_sequences(self, playlist, sequences):
+    def process_sequences(self, playlist: M3U8, sequences: List[Sequence]) -> None:
         first_sequence, last_sequence = sequences[0], sequences[-1]
 
         if first_sequence.segment.key and first_sequence.segment.key.method != "NONE":
@@ -281,10 +324,11 @@ class HLSStreamWorker(SegmentedStreamWorker):
             else:
                 self.playlist_sequence = first_sequence.num
 
-    def valid_sequence(self, sequence):
+    def valid_sequence(self, sequence: Sequence) -> bool:
         return sequence.num >= self.playlist_sequence
 
-    def duration_to_sequence(self, duration, sequences):
+    @staticmethod
+    def duration_to_sequence(duration: int, sequences: List[Sequence]) -> int:
         d = 0
         default = -1
 
@@ -337,7 +381,7 @@ class HLSStreamReader(SegmentedStreamReader):
     __writer__ = HLSStreamWriter
 
     def __init__(self, stream, *args, **kwargs):
-        SegmentedStreamReader.__init__(self, stream, *args, **kwargs)
+        super().__init__(stream, *args, **kwargs)
         self.request_params = dict(stream.args)
         self.timeout = stream.session.options.get("hls-timeout")
 
@@ -408,7 +452,7 @@ class HLSStream(HTTPStream):
     __reader__ = HLSStreamReader
 
     def __init__(self, session_, url, url_master=None, force_restart=False, start_offset=0, duration=None, **args):
-        HTTPStream.__init__(self, session_, url, **args)
+        super().__init__(session_, url, **args)
         self.url_master = url_master
         self.force_restart = force_restart
         self.start_offset = start_offset
@@ -419,7 +463,7 @@ class HLSStream(HTTPStream):
         return f"<HLSStream({self.url!r}, {self.url_master!r})>"
 
     def __json__(self):
-        json = HTTPStream.__json__(self)
+        json = super().__json__()
 
         if self.url_master:
             json["master"] = self.url_master
