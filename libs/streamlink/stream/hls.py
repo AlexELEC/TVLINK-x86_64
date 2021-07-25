@@ -124,11 +124,11 @@ class HLSStreamWriter(SegmentedStreamWriter):
                 if future is None or sequence.segment.discontinuity:
                     future = self.executor.submit(self.fetch_map, sequence)
                     self.map_cache.set(sequence.segment.map.uri, future)
-                self.queue(future, sequence, True)
+                self.queue(sequence, future, True)
 
             # regular segment request
             future = self.executor.submit(self.fetch, sequence)
-            self.queue(future, sequence, False)
+            self.queue(sequence, future, False)
 
     def fetch(self, sequence: Sequence) -> Optional[Response]:
         try:
@@ -229,25 +229,6 @@ class HLSStreamWorker(SegmentedStreamWorker):
             int(self.session.options.get("hls-duration")) if self.session.options.get("hls-duration") else None)
         self.hls_live_restart = self.stream.force_restart or self.session.options.get("hls-live-restart")
 
-        self.reload_playlist()
-
-        if self.playlist_end is None:
-            if self.duration_offset_start > 0:
-                log.debug(f"Time offsets negative for live streams, skipping back {self.duration_offset_start} seconds")
-            # live playlist, force offset durations back to None
-            self.duration_offset_start = -self.duration_offset_start
-
-        if self.duration_offset_start != 0:
-            self.playlist_sequence = self.duration_to_sequence(self.duration_offset_start, self.playlist_sequences)
-
-        if self.playlist_sequences:
-            log.debug(f"First Sequence: {self.playlist_sequences[0].num}; "
-                      f"Last Sequence: {self.playlist_sequences[-1].num}")
-            log.debug(f"Start offset: {self.duration_offset_start}; "
-                      f"Duration: {self.duration_limit}; "
-                      f"Start Sequence: {self.playlist_sequence}; "
-                      f"End Sequence: {self.playlist_end}")
-
     def _reload_playlist(self, text, url):
         return hls_playlist.load(text, url)
 
@@ -344,6 +325,25 @@ class HLSStreamWorker(SegmentedStreamWorker):
         return default
 
     def iter_segments(self):
+        self.reload_playlist()
+
+        if self.playlist_end is None:
+            if self.duration_offset_start > 0:
+                log.debug(f"Time offsets negative for live streams, skipping back {self.duration_offset_start} seconds")
+            # live playlist, force offset durations back to None
+            self.duration_offset_start = -self.duration_offset_start
+
+        if self.duration_offset_start != 0:
+            self.playlist_sequence = self.duration_to_sequence(self.duration_offset_start, self.playlist_sequences)
+
+        if self.playlist_sequences:
+            log.debug(f"First Sequence: {self.playlist_sequences[0].num}; "
+                      f"Last Sequence: {self.playlist_sequences[-1].num}")
+            log.debug(f"Start offset: {self.duration_offset_start}; "
+                      f"Duration: {self.duration_limit}; "
+                      f"Start Sequence: {self.playlist_sequence}; "
+                      f"End Sequence: {self.playlist_end}")
+
         itr_count = 0
         total_duration = 0
         while not self.closed:
@@ -380,19 +380,20 @@ class HLSStreamReader(SegmentedStreamReader):
     __worker__ = HLSStreamWorker
     __writer__ = HLSStreamWriter
 
-    def __init__(self, stream, *args, **kwargs):
-        super().__init__(stream, *args, **kwargs)
+    def __init__(self, stream):
         self.request_params = dict(stream.args)
-        self.timeout = stream.session.options.get("hls-timeout")
-
-        self.filter_event = Event()
-        self.filter_event.set()
-
         # These params are reserved for internal use
         self.request_params.pop("exception", None)
         self.request_params.pop("stream", None)
         self.request_params.pop("timeout", None)
         self.request_params.pop("url", None)
+
+        self.filter_event = Event()
+        self.filter_event.set()
+
+        timeout = stream.session.options.get("hls-timeout")
+
+        super().__init__(stream, timeout)
 
     def read(self, size):
         while True:

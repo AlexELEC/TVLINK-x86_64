@@ -111,12 +111,12 @@
       <!-- Check internet timeout -->
       <tr>
         <td >
-          <label class="form-control">Check internet max time (sec)</label>
+          <label class="form-control">Check internet max time</label>
         </td>
         <td>
           <select id="check_time" class="form-control" onchange="server.setting_options('check_time')" >
-            % for chtime in [3,5,8,10,15,20,25,30,35,40,45,50,60]:
-            <option {{'selected' if chtime == int(check_time) else ""}} >{{chtime}}</option>
+            % for chtime in ['10sec','30sec','60sec','10min','30min','60min','10hr','30hr','60hr']:
+            <option {{'selected' if chtime == check_time else ""}} >{{chtime}}</option>
             % end
           </select>
         </td>
