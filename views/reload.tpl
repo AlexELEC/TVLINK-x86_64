@@ -12,7 +12,7 @@
 
   <script>
     $(document).ready(function(){
-      setTimeout(function(){window.location.replace("/settings");}, 12000);
+      setTimeout(function(){window.location.replace("/settings");}, 20000);
     });
   </script>
 
@@ -40,7 +40,7 @@
   <p>&nbsp;</p>
 
   <div style="text-align:center">
-    <h4 id="blink"><b>Reload program. Wait a few seconds...</b></h4>
+    <h4 id="blink"><b>Reload program. Wait 20 seconds...</b></h4>
   </div>
 
 </body>

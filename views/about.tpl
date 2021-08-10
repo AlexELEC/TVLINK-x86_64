@@ -54,6 +54,8 @@
     <p>&nbsp;</p>
     Telegram chat: <a href="https://t.me/tvlinkae">t.me/tvlinkae</a>
     <p><a href="https://t.me/tvlinkae"><img src="/styles/telegram.png" style="border:0" ></a></p>
+    The program uses the open source code of the project <a href="https://streamlink.github.io/index.html">Streamlink</a>
+    <p><a href="https://streamlink.github.io/index.html"><img src="/styles/streamlink.png" style="border:0" ></a></p>
     Copyright © 2020 all rights reserved to <a href="https://alexelec.tv">Alex@ELEC</a>
     <p>&nbsp;</p>
   </div>

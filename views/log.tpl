@@ -20,7 +20,7 @@
       // Then reload it every x seconds ...
       setInterval(function(){
         $("#logger").load("/logger/tvlink.log");
-      }, 3000);
+      }, 5000);
     });
   </script>
 

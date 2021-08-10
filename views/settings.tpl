@@ -167,7 +167,7 @@
         </td>
         <td>
           <select id="reset_period" class="form-control" onchange="server.setting_options('reset_period')" >
-            % for rst in [1,2,3,4,5,6,7,8,9,10,12,14,18,20,24]:
+            % for rst in [1,2,3,4,5,6,7,8,9,10,12,14,18,20,24,48,72,120,168]:
             <option {{'selected' if rst == int(reset_period) else ""}} >{{rst}}</option>
             % end
           </select>
@@ -232,31 +232,18 @@
     <table class="table" border="2" style="float:left;width:49%;display:block" >
 
       {{!tbl_head}}
-      % buf_values = [3,5,8,10,15,20,25,30,35,40,45,50,80,100,150,200]
-      % chunk_values = [4096, 8192, 16384, 24576, 32768]
+      % buf_values = [5,10,20,30,40,50,80,100,150,200]
+      % chunk_values = [8192, 16384, 24576, 32768, 65536]
 
-      <!-- TS Buffer -->
+      <!-- Stream Buffer -->
       <tr>
         <td >
-          <label class="form-control">TS buffer (Mb)</label>
+          <label class="form-control">Stream buffer (Mb)</label>
         </td>
         <td>
-          <select id="ts_buffer" class="form-control" onchange="server.setting_options('ts_buffer')" >
+          <select id="ring_buffer" class="form-control" onchange="server.setting_options('ring_buffer')" >
             % for tbuf in buf_values:
-            <option {{'selected' if tbuf == int(ts_buffer) else ""}} >{{tbuf}}</option>
-            % end
-          </select>
-        </td>
-      </tr>
-      <!-- HLS Buffer -->
-      <tr>
-        <td>
-          <label class="form-control">HLS buffer (Mb)</label>
-        </td>
-        <td>
-          <select id="hls_buffer" class="form-control" onchange="server.setting_options('hls_buffer')" >
-            % for hbuf in buf_values:
-            <option {{'selected' if hbuf == int(hls_buffer) else ""}} >{{hbuf}}</option>
+            <option {{'selected' if tbuf == int(ring_buffer) else ""}} >{{tbuf}}</option>
             % end
           </select>
         </td>
@@ -287,15 +274,15 @@
           </select>
         </td>
       </tr>
-      <!-- HTTP Timeout -->
+      <!-- Stream Timeout -->
       <tr>
         <td>
-          <label class="form-control">HTTP timeout (sec)</label>
+          <label class="form-control">Stream timeout (sec)</label>
         </td>
         <td>
-          <select id="http_timeout" class="form-control" onchange="server.setting_options('http_timeout')" >
-            % for ht_tout in range(1,21):
-            <option {{'selected' if ht_tout == int(http_timeout) else ""}} >{{ht_tout}}</option>
+          <select id="stream_timeout" class="form-control" onchange="server.setting_options('stream_timeout')" >
+            % for ht_tout in range(1,61):
+            <option {{'selected' if ht_tout == int(stream_timeout) else ""}} >{{ht_tout}}</option>
             % end
           </select>
         </td>
@@ -307,15 +294,28 @@
 
       {{!tbl_head}}
 
-      <!-- HLS Segment Timeout -->
+      <!-- Segment Timeout -->
       <tr>
         <td>
-          <label class="form-control">HLS segment timeout (sec)</label>
+          <label class="form-control">Segment timeout (sec)</label>
         </td>
         <td>
-          <select id="hls_timeout" class="form-control" onchange="server.setting_options('hls_timeout')" >
-            % for hl_tout in range(1,21):
-            <option {{'selected' if hl_tout == int(hls_timeout) else ""}} >{{hl_tout}}</option>
+          <select id="segment_timeout" class="form-control" onchange="server.setting_options('segment_timeout')" >
+            % for hl_tout in range(1,61):
+            <option {{'selected' if hl_tout == int(segment_timeout) else ""}} >{{hl_tout}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
+      <!-- Segment Threads -->
+      <tr>
+        <td>
+          <label class="form-control">Segment threads</label>
+        </td>
+        <td>
+          <select id="stream_segment_threads" class="form-control" onchange="server.setting_options('stream_segment_threads')" >
+            % for thrd in range(1,11):
+            <option {{'selected' if thrd == int(stream_segment_threads) else ""}} >{{thrd}}</option>
             % end
           </select>
         </td>
@@ -333,19 +333,6 @@
           </select>
         </td>
       </tr>
-      <!-- HLS Segment Threads -->
-      <tr>
-        <td>
-          <label class="form-control">HLS segment threads</label>
-        </td>
-        <td>
-          <select id="hls_segment_threads" class="form-control" onchange="server.setting_options('hls_segment_threads')" >
-            % for thrd in range(1,11):
-            <option {{'selected' if thrd == int(hls_segment_threads) else ""}} >{{thrd}}</option>
-            % end
-          </select>
-        </td>
-      </tr>
       <!-- HLS Playlist Reload Time -->
       <tr>
         <td>
@@ -357,16 +344,6 @@
             <option {{'selected' if rltime == hls_playlist_reload_time else ""}} >{{rltime}}</option>
             % end
           </select>
-        </td>
-      </tr>
-      <!-- HLS Segment Stream Data -->
-      <tr>
-        <td>
-          <label class="form-control">HLS segment stream data</label>
-        </td>
-        <td><label class="switch">
-          <input id="hls_stream_data" type="checkbox" onClick="server.set_hls_stream_data()" {{'checked="checked"' if hls_stream_data == 'True' else ""}} >
-          <span class="slider round"></span></label>
         </td>
       </tr>
 

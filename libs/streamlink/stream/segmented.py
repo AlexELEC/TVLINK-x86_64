@@ -62,6 +62,14 @@ class SegmentedStreamWorker(Thread):
         log.debug("Closing worker thread")
 
         self.closed = True
+        # cleanup SegmentedStreamWorker
+        self.writer.put(None)
+        self.writer.close()
+        self.writer = None
+        self.reader = None
+        self.stream = None
+        self.session = None
+        # ---
         self._wait.set()
 
     def wait(self, time):
@@ -88,7 +96,6 @@ class SegmentedStreamWorker(Thread):
             self.writer.put(segment)
 
         # End of stream, tells the writer to exit
-        self.writer.put(None)
         self.close()
 
 
@@ -116,7 +123,8 @@ class SegmentedStreamWriter(Thread):
 
         self.retries = retries
         self.timeout = timeout
-        self.executor = CompatThreadPoolExecutor(max_workers=threads)
+        self.threads = threads
+        self.executor = CompatThreadPoolExecutor(max_workers=self.threads)
         self.futures = queue.Queue(size)
 
         self.BAN_LIST = (
@@ -144,6 +152,10 @@ class SegmentedStreamWriter(Thread):
 
         self.closed = True
         self.reader.close()
+        # cleanup SegmentedStreamWriter
+        self.stream = None
+        self.session = None
+        # ---
         self.executor.shutdown(wait=True, cancel_futures=True)
 
     def put(self, segment):
@@ -255,6 +267,13 @@ class SegmentedStreamReader(StreamIO):
         self.worker.close()
         self.writer.close()
         self.buffer.close()
+
+        # cleanup SegmentedStreamReader
+        self.session = None
+        self.stream = None
+        self.buffer = None
+        self.writer = None
+        self.worker = None
 
     def read(self, size):
         return self.buffer.read(

@@ -67,7 +67,7 @@ class HTTPStream(Stream):
 
     def open(self):
         method = self.args.get("method", "GET")
-        timeout = self.session.http.timeout
+        timeout = self.session.options.get("stream-timeout")
         chunk_size = self.session.get_option("chunk-size-ts")
         #print ('timeout:', timeout)
         #print ('chunk-size-ts:', chunk_size)

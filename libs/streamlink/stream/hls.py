@@ -12,7 +12,7 @@ from Crypto.Cipher import AES
 # noinspection PyPackageRequirements
 from Crypto.Util.Padding import unpad
 from requests import Response
-from requests.exceptions import ChunkedEncodingError
+from requests.exceptions import ChunkedEncodingError, ConnectionError, ContentDecodingError
 
 from streamlink.exceptions import StreamError
 from streamlink.stream import hls_playlist
@@ -31,19 +31,15 @@ class Sequence(NamedTuple):
 
 
 class HLSStreamWriter(SegmentedStreamWriter):
-    def __init__(self, reader, *args, **kwargs):
-        options = reader.stream.session.options
-        kwargs["retries"] = options.get("hls-segment-attempts")
-        kwargs["threads"] = options.get("hls-segment-threads")
-        kwargs["timeout"] = options.get("hls-segment-timeout")
-        super().__init__(reader, *args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        options = self.session.options
 
         self.byterange_offsets = defaultdict(int)
-        self.map_cache: LRUCache[Sequence.segment.map.uri, Future] = LRUCache(kwargs["threads"])
+        self.map_cache: LRUCache[Sequence.segment.map.uri, Future] = LRUCache(self.threads)
         self.key_data = None
         self.key_uri = None
         self.key_uri_override = options.get("hls-segment-key-uri")
-        self.stream_data = options.get("hls-segment-stream-data")
         self.chunk_size = options.get("chunk-size-hls")
 
         self.ignore_names = False
@@ -132,13 +128,13 @@ class HLSStreamWriter(SegmentedStreamWriter):
 
     def fetch(self, sequence: Sequence) -> Optional[Response]:
         try:
-            return self._fetch(sequence.segment, self.stream_data and not sequence.segment.key)
+            return self._fetch(sequence.segment, not sequence.segment.key)
         except StreamError as err:  # pragma: no cover
             log.error(f"Failed to fetch segment {sequence.num}: {err}")
 
     def fetch_map(self, sequence: Sequence) -> Optional[Response]:
         try:
-            return self._fetch(sequence.segment.map, self.stream_data and not sequence.segment.key)
+            return self._fetch(sequence.segment.map, False)
         except StreamError as err:  # pragma: no cover
             log.error(f"Failed to fetch map for segment {sequence.num}: {err}")
 
@@ -201,8 +197,8 @@ class HLSStreamWriter(SegmentedStreamWriter):
             try:
                 for chunk in res.iter_content(self.chunk_size):
                     self.reader.buffer.write(chunk)
-            except ChunkedEncodingError:
-                log.error(f"Download of segment {sequence.num} failed")
+            except (ChunkedEncodingError, ContentDecodingError, ConnectionError) as err:
+                log.error(f"Download of segment {sequence.num} failed ({err})")
                 return
 
         if is_map:
@@ -220,7 +216,7 @@ class HLSStreamWorker(SegmentedStreamWorker):
         self.playlist_end: Optional[Sequence.num] = None
         self.playlist_sequence: int = -1
         self.playlist_sequences: List[Sequence] = []
-        self.playlist_reload_time: float = 12
+        self.playlist_reload_time: float = 6
         self.live_edge = self.session.options.get("hls-live-edge")
         self.playlist_reload_retries = self.session.options.get("hls-playlist-reload-attempts")
         self.playlist_reload_time_override = self.session.options.get("hls-playlist-reload-time")
@@ -325,7 +321,11 @@ class HLSStreamWorker(SegmentedStreamWorker):
         return default
 
     def iter_segments(self):
-        self.reload_playlist()
+        try:
+            self.reload_playlist()
+        except StreamError as err:
+            log.error(f'{err}')
+            return
 
         if self.playlist_end is None:
             if self.duration_offset_start > 0:
@@ -391,9 +391,7 @@ class HLSStreamReader(SegmentedStreamReader):
         self.filter_event = Event()
         self.filter_event.set()
 
-        timeout = stream.session.options.get("hls-timeout")
-
-        super().__init__(stream, timeout)
+        super().__init__(stream)
 
     def read(self, size):
         while True:
