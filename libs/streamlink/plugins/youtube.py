@@ -7,8 +7,9 @@ from urllib.parse import urlparse, urlunparse
 from streamlink.plugin import Plugin, PluginError, pluginmatcher
 from streamlink.plugin.api import useragents, validate
 from streamlink.plugin.api.utils import itertags
-from streamlink.stream import HLSStream, HTTPStream
 from streamlink.stream.ffmpegmux import MuxedStream
+from streamlink.stream.hls import HLSStream
+from streamlink.stream.http import HTTPStream
 from streamlink.utils import parse_json, search_dict
 
 log = logging.getLogger(__name__)
@@ -251,11 +252,14 @@ class YouTube(Plugin):
             params={"key": _i_api_key},
             data=json.dumps({
                 "videoId": _i_video_id,
+                "contentCheckOk": True,
+                "racyCheckOk": True,
                 "context": {
                     "client": {
-                        "clientName": "WEB_EMBEDDED_PLAYER",
+                        "clientName": "WEB",
                         "clientVersion": _i_version,
                         "platform": "DESKTOP",
+                        "clientScreen": "EMBED",
                         "clientFormFactor": "UNKNOWN_FORM_FACTOR",
                         "browserName": "Chrome",
                     },
@@ -274,12 +278,13 @@ class YouTube(Plugin):
                 if videoId is not None:
                     return videoId
 
-    def _data_status(self, data):
+    def _data_status(self, data, errorlog=False):
         if not data:
             return False
         status, reason = self._schema_playabilitystatus(data)
         if status != "OK":
-            log.error(f"Could not get video info - {status}: {reason}")
+            if errorlog:
+                log.error(f"Could not get video info - {status}: {reason}")
             return False
         return True
 
@@ -298,7 +303,7 @@ class YouTube(Plugin):
         data = self._get_data_from_regex(res, self._re_ytInitialPlayerResponse, "initial player response")
         if not self._data_status(data):
             data = self._get_data_from_api(res)
-            if not self._data_status(data):
+            if not self._data_status(data, True):
                 return
 
         video_id, self.author, self.title, is_live = self._schema_videodetails(data)

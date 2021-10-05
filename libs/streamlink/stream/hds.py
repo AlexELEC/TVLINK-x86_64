@@ -19,10 +19,11 @@ from streamlink.packages.flashmedia import F4V, F4VError
 from streamlink.packages.flashmedia.box import Box
 from streamlink.packages.flashmedia.tag import ScriptData, TAG_TYPE_SCRIPT, Tag
 from streamlink.stream.flvconcat import FLVTagConcat
-from streamlink.stream.segmented import (SegmentedStreamReader, SegmentedStreamWorker, SegmentedStreamWriter)
+from streamlink.stream.segmented import SegmentedStreamReader, SegmentedStreamWorker, SegmentedStreamWriter
 from streamlink.stream.stream import Stream
 from streamlink.stream.wrappers import StreamIOIterWrapper
-from streamlink.utils import absolute_url, swfdecompress
+from streamlink.utils import swfdecompress
+from streamlink.utils.url import absolute_url
 
 log = logging.getLogger(__name__)
 # Akamai HD player verification key

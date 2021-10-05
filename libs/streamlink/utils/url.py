@@ -3,16 +3,33 @@ from collections import OrderedDict
 from urllib.parse import parse_qsl, quote_plus, urlencode, urljoin, urlparse, urlunparse
 
 
+def absolute_url(baseurl, url):
+    parsed = urlparse(url)
+    if not parsed.scheme:
+        url = urljoin(baseurl, url)
+
+    return url
+
+
+def prepend_www(url):
+    parsed = urlparse(url)
+    if not parsed.netloc.startswith("www."):
+        # noinspection PyProtectedMember
+        parsed = parsed._replace(netloc=f"www.{parsed.netloc}")
+
+    return parsed.geturl()
+
+
 _re_uri_implicit_scheme = re.compile(r"""^[a-z0-9][a-z0-9.+-]*://""", re.IGNORECASE)
 
 
-def update_scheme(current: str, target: str) -> str:
+def update_scheme(current: str, target: str, force: bool = True) -> str:
     """
-    Take the scheme from the current URL and apply it to the
-    target URL if the target URL starts with // or is missing a scheme
+    Take the scheme from the current URL and apply it to the target URL if it is missing
     :param current: current URL
     :param target: target URL
-    :return: target URL with the current URLs scheme
+    :param force: always apply the current scheme to the target, even if a target scheme exists
+    :return: target URL with the current URL's scheme
     """
     target_p = urlparse(target)
 
@@ -32,6 +49,11 @@ def update_scheme(current: str, target: str) -> str:
         return f"{urlparse(current).scheme}:{urlunparse(target_p)}"
 
     # target URLs with scheme
+    # override the target scheme
+    if force:
+        return urlunparse(target_p._replace(scheme=urlparse(current).scheme))
+
+    # keep the target scheme
     return target
 
 

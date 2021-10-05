@@ -6,12 +6,12 @@ from collections import OrderedDict
 from importlib.machinery import FileFinder, SOURCE_SUFFIXES, SourceFileLoader
 from importlib.util import module_from_spec
 from typing import Dict, Generic, Optional, TypeVar
-from urllib.parse import parse_qsl, urljoin, urlparse
+from urllib.parse import parse_qsl, urlparse
 
 from streamlink.exceptions import PluginError
-from streamlink.utils.lazy_formatter import LazyFormatter
+from streamlink.utils.formatter import Formatter
 from streamlink.utils.named_pipe import NamedPipe
-from streamlink.utils.url import update_scheme, url_equal
+from streamlink.utils.url import absolute_url, prepend_www, update_qsd, update_scheme, url_concat, url_equal
 
 
 _loader_details = [(SourceFileLoader, SOURCE_SUFFIXES)]
@@ -32,32 +32,6 @@ def swfdecompress(data):
         data = b"F" + data[1:8] + zlib.decompress(data[8:])
 
     return data
-
-
-def verifyjson(json, key):
-    if not isinstance(json, dict):
-        raise PluginError("JSON result is not a dict")
-
-    if key not in json:
-        raise PluginError("Missing '{0}' key in JSON".format(key))
-
-    return json[key]
-
-
-def absolute_url(baseurl, url):
-    if not url.startswith("http"):
-        return urljoin(baseurl, url)
-    else:
-        return url
-
-
-def prepend_www(url):
-    """Changes google.com to www.google.com"""
-    parsed = urlparse(url)
-    if parsed.netloc.split(".")[0] != "www":
-        return parsed.scheme + "://www." + parsed.netloc + parsed.path
-    else:
-        return url
 
 
 def parse_json(data, name="JSON", exception=PluginError, schema=None):
@@ -210,6 +184,6 @@ class LRUCache(Generic[TCacheKey, TCacheValue]):
 
 
 __all__ = ["load_module", "swfdecompress", "update_scheme", "url_equal",
-           "verifyjson", "absolute_url", "parse_qsd", "parse_json",
+           "absolute_url", "parse_qsd", "parse_json",
            "parse_xml", "rtmpparse", "prepend_www", "NamedPipe",
-           "escape_librtmp", "LRUCache", "LazyFormatter"]
+           "escape_librtmp", "LRUCache", "Formatter", "update_qsd", "url_concat"]
