@@ -277,12 +277,25 @@
       <!-- Stream Timeout -->
       <tr>
         <td>
-          <label class="form-control">Stream timeout (sec)</label>
+          <label class="form-control">Stream/Segment timeout (sec)</label>
         </td>
         <td>
           <select id="stream_timeout" class="form-control" onchange="server.setting_options('stream_timeout')" >
             % for ht_tout in range(1,61):
             <option {{'selected' if ht_tout == int(stream_timeout) else ""}} >{{ht_tout}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
+      <!-- Stream retry count -->
+      <tr>
+        <td>
+          <label class="form-control">Stream retry count</label>
+        </td>
+        <td>
+          <select id="stream_retry" class="form-control" onchange="server.setting_options('stream_retry')" >
+            % for hl_tout in range(0,61):
+            <option {{'selected' if hl_tout == int(stream_retry) else ""}} >{{hl_tout}}</option>
             % end
           </select>
         </td>
@@ -294,19 +307,6 @@
 
       {{!tbl_head}}
 
-      <!-- Segment Timeout -->
-      <tr>
-        <td>
-          <label class="form-control">Segment timeout (sec)</label>
-        </td>
-        <td>
-          <select id="segment_timeout" class="form-control" onchange="server.setting_options('segment_timeout')" >
-            % for hl_tout in range(1,61):
-            <option {{'selected' if hl_tout == int(segment_timeout) else ""}} >{{hl_tout}}</option>
-            % end
-          </select>
-        </td>
-      </tr>
       <!-- Segment Threads -->
       <tr>
         <td>
@@ -344,6 +344,30 @@
             <option {{'selected' if rltime == hls_playlist_reload_time else ""}} >{{rltime}}</option>
             % end
           </select>
+        </td>
+      </tr>
+      <!-- HLS Live Restart -->
+      <tr>
+        <td>
+          <label class="form-control">HLS Live Restart</label>
+        </td>
+        <td>
+          <label class="switch">
+          <input id="hls_restart" type="checkbox" onClick="server.hls_restart()" {{'checked="checked"' if hls_restart == 'true' else ""}} >
+          <span class="slider round"></span>
+          </label>
+        </td>
+      </tr>
+      <!-- Debug Streams -->
+      <tr>
+        <td>
+          <label class="form-control">Debug Streams</label>
+        </td>
+        <td>
+          <label class="switch">
+          <input id="dbg_stream" type="checkbox" onClick="server.dbg_stream()" {{'checked="checked"' if dbg_stream == 'true' else ""}} >
+          <span class="slider round"></span>
+          </label>
         </td>
       </tr>
 

@@ -264,9 +264,12 @@ class SegmentedStreamReader(StreamIO):
         self.worker.start()
 
     def close(self):
-        self.worker.close()
-        self.writer.close()
-        self.buffer.close()
+        try: self.worker.close()
+        except: pass
+        try: self.writer.close()
+        except: pass
+        try: self.buffer.close()
+        except: pass
 
         # cleanup SegmentedStreamReader
         self.session = None

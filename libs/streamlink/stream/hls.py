@@ -338,6 +338,7 @@ class HLSStreamWorker(SegmentedStreamWorker):
         if self.playlist_sequences:
             log.debug(f"First Sequence: {self.playlist_sequences[0].num}; "
                       f"Last Sequence: {self.playlist_sequences[-1].num}")
+            log.debug(f"HLS Live Restart: {self.hls_live_restart}")
             log.debug(f"Start offset: {self.duration_offset_start}; "
                       f"Duration: {self.duration_limit}; "
                       f"Start Sequence: {self.playlist_sequence}; "
@@ -347,7 +348,7 @@ class HLSStreamWorker(SegmentedStreamWorker):
         total_duration = 0
         while not self.closed:
             for sequence in filter(self.valid_sequence, self.playlist_sequences):
-                #print ('Adding segment to queue:', sequence.segment.uri)
+                #print (f"Adding segment {sequence.num} to queue:", sequence.segment.uri)
                 log.debug(f"Adding segment {sequence.num} to queue")
                 yield sequence
                 total_duration += sequence.segment.duration
@@ -365,6 +366,7 @@ class HLSStreamWorker(SegmentedStreamWorker):
             if self.wait(self.playlist_reload_time):
                 try:
                     #print ('Reload playlist Wait:', self.playlist_reload_time)
+                    log.debug(f"Reload playlist time: {self.playlist_reload_time}")
                     self.reload_playlist()
                 except StreamError as err:
                     log.warning(f"Failed to reload playlist: {err}")
