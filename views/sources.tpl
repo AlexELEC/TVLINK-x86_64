@@ -455,6 +455,17 @@
 
   <p>&nbsp;</p>
   <p>&nbsp;</p>
+  <p>&nbsp;</p>
+
+  % if is_enabled:
+  <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-bottom">
+    <div class="container justify-content-center"> <button class="navbar-toggler navbar-toggler-right border-0" type="button" data-toggle="collapse" data-target="#navbar_bottom">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <a href="/updsrc" id="countCH" style="font-size:20px;color:white;font-weight:bold;">Update all sources</a>
+    </div>
+  </nav>
+  % end
 
 </body>
 

@@ -112,7 +112,7 @@ class DASHStreamWorker(SegmentedStreamWorker):
         self.reader.buffer.wait_free()
         log.debug("Reloading manifest ({0}:{1})".format(self.reader.representation_id, self.reader.mime_type))
         res = self.session.http.get(self.mpd.url, exception=StreamError, **self.stream.args)
-
+        if not res: return
         new_mpd = MPD(self.session.http.xml(res, ignore_ns=True),
                       base_url=self.mpd.base_url,
                       url=self.mpd.url,

@@ -27,13 +27,6 @@ def load_module(name, path=None):
     return mod
 
 
-def swfdecompress(data):
-    if data[:3] == b"CWS":
-        data = b"F" + data[1:8] + zlib.decompress(data[8:])
-
-    return data
-
-
 def parse_json(data, name="JSON", exception=PluginError, schema=None):
     """Wrapper around json.loads.
 
@@ -102,30 +95,6 @@ def parse_qsd(data, name="query string", exception=PluginError, schema=None, **p
     return value
 
 
-def rtmpparse(url):
-    parse = urlparse(url)
-    netloc = "{hostname}:{port}".format(hostname=parse.hostname,
-                                        port=parse.port or 1935)
-    split = list(filter(None, parse.path.split("/")))
-    playpath = None
-    if len(split) > 2:
-        app = "/".join(split[:2])
-        playpath = "/".join(split[2:])
-    elif len(split) == 2:
-        app, playpath = split
-    else:
-        app = split[0]
-
-    if len(parse.query) > 0:
-        playpath += "?{parse.query}".format(parse=parse)
-
-    tcurl = "{scheme}://{netloc}/{app}".format(scheme=parse.scheme,
-                                               netloc=netloc,
-                                               app=app)
-
-    return tcurl, playpath
-
-
 def search_dict(data, key):
     """
     Search for a key in a nested dict, or list of nested dicts, and return the values.
@@ -142,19 +111,6 @@ def search_dict(data, key):
     elif isinstance(data, list):
         for value in data:
             yield from search_dict(value, key)
-
-
-def escape_librtmp(value):  # pragma: no cover
-    if isinstance(value, bool):
-        value = "1" if value else "0"
-    if isinstance(value, int):
-        value = str(value)
-
-    # librtmp expects some characters to be escaped
-    value = value.replace("\\", "\\5c")
-    value = value.replace(" ", "\\20")
-    value = value.replace('"', "\\22")
-    return value
 
 
 TCacheKey = TypeVar("TCacheKey")
@@ -183,7 +139,7 @@ class LRUCache(Generic[TCacheKey, TCacheValue]):
             self.cache.popitem(last=False)
 
 
-__all__ = ["load_module", "swfdecompress", "update_scheme", "url_equal",
+__all__ = ["load_module", "update_scheme", "url_equal",
            "absolute_url", "parse_qsd", "parse_json",
-           "parse_xml", "rtmpparse", "prepend_www", "NamedPipe",
-           "escape_librtmp", "LRUCache", "Formatter", "update_qsd", "url_concat"]
+           "parse_xml", "prepend_www", "NamedPipe",
+           "LRUCache", "Formatter", "update_qsd", "url_concat"]

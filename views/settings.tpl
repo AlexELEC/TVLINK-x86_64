@@ -71,6 +71,19 @@
           <input id="check_ip" class="form-control" type="text" value="{{check_net_ip}}" onchange="server.set_checkip()" >
         </td>
       </tr>
+      <!-- Check internet timeout -->
+      <tr>
+        <td >
+          <label class="form-control">Check internet max time</label>
+        </td>
+        <td>
+          <select id="check_time" class="form-control" onchange="server.setting_options('check_time')" >
+            % for chtime in ['10sec','30sec','60sec','10min','30min','60min','10hr','30hr','60hr']:
+            <option {{'selected' if chtime == check_time else ""}} >{{chtime}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
 
     </table>
 
@@ -98,6 +111,16 @@
           <span class="slider round"></span></label>
         </td>
       </tr>
+      <!-- Create static playlist -->
+      <tr>
+        <td>
+          <label class="form-control">Create static playlist</label>
+        </td>
+        <td><label class="switch">
+          <input id="static_playlist" type="checkbox" onClick="server.static_playlist()" {{'checked="checked"' if static_playlist == 'true' else ""}} >
+          <span class="slider round"></span></label>
+        </td>
+      </tr>
       <!-- Remove channels -->
       <tr>
         <td>
@@ -106,19 +129,6 @@
         <td><label class="switch">
           <input id="del_ch_broken" type="checkbox" onClick="server.del_broken_channel()" {{'checked="checked"' if del_ch == 'true' else ""}} >
           <span class="slider round"></span></label>
-        </td>
-      </tr>
-      <!-- Check internet timeout -->
-      <tr>
-        <td >
-          <label class="form-control">Check internet max time</label>
-        </td>
-        <td>
-          <select id="check_time" class="form-control" onchange="server.setting_options('check_time')" >
-            % for chtime in ['10sec','30sec','60sec','10min','30min','60min','10hr','30hr','60hr']:
-            <option {{'selected' if chtime == check_time else ""}} >{{chtime}}</option>
-            % end
-          </select>
         </td>
       </tr>
 

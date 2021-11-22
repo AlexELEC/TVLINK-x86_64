@@ -3,21 +3,20 @@ import pkgutil
 from collections import OrderedDict
 from functools import lru_cache
 from socket import AF_INET, AF_INET6
-from typing import Dict, Optional, Type
+from typing import Dict, Optional, Tuple, Type
 
 import requests
 import requests.packages.urllib3.util.connection as urllib3_connection
 from requests.packages.urllib3.util.connection import allowed_gai_family
 
 from streamlink import __version__, plugins
-from streamlink.compat import is_win32
 from streamlink.exceptions import NoPluginError, PluginError
 from streamlink.logger import StreamlinkLogger
 from streamlink.options import Options
-from streamlink.plugin import Plugin, api
-from streamlink.plugin.plugin import Matcher, NORMAL_PRIORITY, NO_PRIORITY
-from streamlink.utils import load_module
+from streamlink.plugin.api.http_session import HTTPSession
+from streamlink.plugin.plugin import Matcher, NORMAL_PRIORITY, NO_PRIORITY, Plugin
 from streamlink.utils.l10n import Localization
+from streamlink.utils import load_module
 from streamlink.utils.url import update_scheme
 
 # Ensure that the Logger class returned is Streamslink's for using the API (for backwards compatibility)
@@ -34,12 +33,11 @@ class Streamlink:
        options and log settings."""
 
     def __init__(self, options=None):
-        self.http = api.HTTPSession()
+        self.http = HTTPSession()
         self.options = Options({
             "interface": None,
             "ipv4": False,
             "ipv6": False,
-            "hds-live-edge": 10.0,
             "hls-live-edge": 3,
             "hls-segment-ignore-names": [],
             "hls-playlist-reload-attempts": 3,
@@ -48,14 +46,10 @@ class Streamlink:
             "hls-duration": None,
             "hls-live-restart": False,
             "ringbuffer-size": 1024 * 1024 * 16,  # 16 MB
-            "rtmp-rtmpdump": is_win32 and "rtmpdump.exe" or "rtmpdump",
-            "rtmp-proxy": None,
             "stream-segment-attempts": 3,
             "stream-segment-threads": 1,
             "stream-segment-timeout": 10.0,
             "stream-timeout": 60.0,
-            "subprocess-errorlog": False,
-            "subprocess-errorlog-path": None,
             "ffmpeg-ffmpeg": None,
             "ffmpeg-fout": None,
             "ffmpeg-video-transcode": None,
@@ -90,9 +84,6 @@ class Streamlink:
                                  This option overrides ipv6, default: ``False``
         ipv6                     (bool) Resolve address names to IPv6 only.
                                  This option overrides ipv4, default: ``False``
-        hds-live-edge            (float) Specify the time live HDS
-                                 streams will start from the edge of
-                                 stream, default: ``10.0``
 
         hls-live-edge            (int) How many segments from the end
                                  to start live streams on, default: ``3``
@@ -139,22 +130,9 @@ class Streamlink:
                                  requests except the ones covered by
                                  other options, default: ``20.0``
 
-        subprocess-errorlog      (bool) Log errors from subprocesses to
-                                 a file located in the temp directory
-
-        subprocess-errorlog-path (str) Log errors from subprocesses to
-                                 a specific file
-
         ringbuffer-size          (int) The size of the internal ring
                                  buffer used by most stream types,
                                  default: ``16777216`` (16MB)
-
-        rtmp-proxy               (str) Specify a proxy (SOCKS) that RTMP
-                                 streams will use
-
-        rtmp-rtmpdump            (str) Specify the location of the
-                                 rtmpdump executable used by RTMP streams,
-                                 e.g. ``/usr/local/bin/rtmpdump``
 
         ffmpeg-ffmpeg            (str) Specify the location of the
                                  ffmpeg executable use by Muxing streams
@@ -272,17 +250,17 @@ class Streamlink:
         elif key == "http-timeout":
             self.http.timeout = value
 
-        # deprecated: {dash,hds,hls}-segment-attempts
-        elif key in ("dash-segment-attempts", "hds-segment-attempts", "hls-segment-attempts"):
+        # deprecated: {dash,hls}-segment-attempts
+        elif key in ("dash-segment-attempts", "hls-segment-attempts"):
             self.options.set("stream-segment-attempts", int(value))
-        # deprecated: {dash,hds,hls}-segment-threads
-        elif key in ("dash-segment-threads", "hds-segment-threads", "hls-segment-threads"):
+        # deprecated: {dash,hls}-segment-threads
+        elif key in ("dash-segment-threads", "hls-segment-threads"):
             self.options.set("stream-segment-threads", int(value))
-        # deprecated: {dash,hds,hls}-segment-timeout
-        elif key in ("dash-segment-timeout", "hds-segment-timeout", "hls-segment-timeout"):
+        # deprecated: {dash,hls}-segment-timeout
+        elif key in ("dash-segment-timeout", "hls-segment-timeout"):
             self.options.set("stream-segment-timeout", float(value))
-        # deprecated: {hds,hls,rtmp,dash,http-stream}-timeout
-        elif key in ("dash-timeout", "hds-timeout", "hls-timeout", "http-stream-timeout", "rtmp-timeout"):
+        # deprecated: {hls,dash,http-stream}-timeout
+        elif key in ("dash-timeout", "hls-timeout", "http-stream-timeout"):
             self.options.set("stream-timeout", float(value))
 
         else:
@@ -342,10 +320,10 @@ class Streamlink:
             return plugin.get_option(key)
 
     @lru_cache(maxsize=128)
-    def resolve_url(self, url: str, follow_redirect: bool = True) -> Plugin:
+    def resolve_url(self, url: str, follow_redirect: bool = True) -> Tuple[Type[Plugin], str]:
         """Attempts to find a plugin that can use this URL.
 
-        The default protocol (http) will be prefixed to the URL if
+        The default protocol (https) will be prefixed to the URL if
         not specified.
 
         Raises :exc:`NoPluginError` on failure.
@@ -374,11 +352,12 @@ class Streamlink:
                     priority = prio
 
         if candidate:
-            return candidate(url)
+            return candidate, url
 
         if follow_redirect:
             # Attempt to handle a redirect URL
             try:
+                # noinspection PyArgumentList
                 res = self.http.head(url, allow_redirects=True, acceptable_status=[501])
 
                 # Fall back to GET request if server doesn't handle HEAD.
@@ -392,10 +371,10 @@ class Streamlink:
 
         raise NoPluginError
 
-    def resolve_url_no_redirect(self, url):
+    def resolve_url_no_redirect(self, url: str) -> Tuple[Type[Plugin], str]:
         """Attempts to find a plugin that can use this URL.
 
-        The default protocol (http) will be prefixed to the URL if
+        The default protocol (https) will be prefixed to the URL if
         not specified.
 
         Raises :exc:`NoPluginError` on failure.
@@ -405,7 +384,7 @@ class Streamlink:
         """
         return self.resolve_url(url, follow_redirect=False)
 
-    def streams(self, url, **params):
+    def streams(self, url: str, **params):
         """Attempts to find a plugin and extract streams from the *url*.
 
         *params* are passed to :func:`Plugin.streams`.
@@ -413,7 +392,9 @@ class Streamlink:
         Raises :exc:`NoPluginError` if no plugin is found.
         """
 
-        plugin = self.resolve_url(url)
+        pluginclass, resolved_url = self.resolve_url(url)
+        plugin = pluginclass(resolved_url)
+
         return plugin.streams(**params)
 
     def get_plugins(self):

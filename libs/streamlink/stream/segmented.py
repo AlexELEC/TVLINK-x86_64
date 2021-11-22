@@ -279,8 +279,10 @@ class SegmentedStreamReader(StreamIO):
         self.worker = None
 
     def read(self, size):
-        return self.buffer.read(
-            size,
-            block=self.writer.is_alive(),
-            timeout=self.timeout
-        )
+        if size:
+            return self.buffer.read(
+                size,
+                block=self.writer.is_alive(),
+                timeout=self.timeout
+            )
+        else: return b''

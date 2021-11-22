@@ -59,17 +59,17 @@ class MuxedStream(Stream):
 
 class FFMPEGMuxer(StreamIO):
     __commands__ = ['ffmpeg', 'ffmpeg.exe', 'avconv', 'avconv.exe']
-    DEFAULT_OUTPUT_FORMAT = "matroska"
+    DEFAULT_OUTPUT_FORMAT = "mpegts"
     DEFAULT_VIDEO_CODEC = "copy"
     DEFAULT_AUDIO_CODEC = "copy"
 
     @staticmethod
-    def copy_to_pipe(stream: StreamIO, pipe: NamedPipeBase):
+    def copy_to_pipe(stream: StreamIO, pipe: NamedPipeBase, chunk_size):
         log.debug(f"Starting copy to pipe: {pipe.path}")
         pipe.open()
         while not stream.closed:
             try:
-                data = stream.read(8192)
+                data = stream.read(chunk_size)
                 if len(data):
                     pipe.write(data)
                 else:
@@ -90,9 +90,10 @@ class FFMPEGMuxer(StreamIO):
         self.session = session
         self.process = None
         self.streams = streams
+        self.chunk_size = int(session.options.get("chunk-size-hls"))
 
         self.pipes = [NamedPipe() for _ in self.streams]
-        self.pipe_threads = [threading.Thread(target=self.copy_to_pipe, args=(stream, np))
+        self.pipe_threads = [threading.Thread(target=self.copy_to_pipe, args=(stream, np, self.chunk_size))
                              for stream, np in
                              zip(self.streams, self.pipes)]
 
@@ -102,7 +103,7 @@ class FFMPEGMuxer(StreamIO):
         audiocodec = session.options.get("ffmpeg-audio-transcode") or options.pop("acodec", self.DEFAULT_AUDIO_CODEC)
         metadata = options.pop("metadata", {})
         maps = options.pop("maps", [])
-        copyts = session.options.get("ffmpeg-copyts") or options.pop("copyts", False)
+        copyts = session.options.get("ffmpeg-copyts")
         start_at_zero = session.options.get("ffmpeg-start-at-zero") or options.pop("start_at_zero", False)
 
         self._cmd = [self.command(session), '-nostats', '-y']
