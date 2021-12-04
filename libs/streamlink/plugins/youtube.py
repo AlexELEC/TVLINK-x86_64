@@ -118,23 +118,44 @@ class YouTube(Plugin):
     @classmethod
     def _schema_videodetails(cls, data):
         schema = validate.Schema(
-            {"videoDetails": {
-                "videoId": str,
-                "author": str,
-                "title": str,
-                validate.optional("isLive"): validate.transform(bool),
-                validate.optional("isLiveContent"): validate.transform(bool),
-                validate.optional("isLiveDvrEnabled"): validate.transform(bool),
-                validate.optional("isLowLatencyLiveStream"): validate.transform(bool),
-                validate.optional("isPrivate"): validate.transform(bool),
-            }},
-            validate.get("videoDetails"),
+            {
+                "videoDetails": {
+                    "videoId": str,
+                    "author": str,
+                    "title": str,
+                    validate.optional("isLive"): validate.transform(bool),
+                    validate.optional("isLiveContent"): validate.transform(bool),
+                    validate.optional("isLiveDvrEnabled"): validate.transform(bool),
+                    validate.optional("isLowLatencyLiveStream"): validate.transform(bool),
+                    validate.optional("isPrivate"): validate.transform(bool),
+                },
+                "microformat": validate.all(
+                    validate.any(
+                        validate.all(
+                            {"playerMicroformatRenderer": dict},
+                            validate.get("playerMicroformatRenderer")
+                        ),
+                        validate.all(
+                            {"microformatDataRenderer": dict},
+                            validate.get("microformatDataRenderer")
+                        )
+                    ),
+                    {
+                        "category": str
+                    }
+                )
+            },
+            validate.union_get(
+                ("videoDetails", "videoId"),
+                ("videoDetails", "author"),
+                ("microformat", "category"),
+                ("videoDetails", "title"),
+                ("videoDetails", "isLive")
+            )
         )
         videoDetails = validate.validate(schema, data)
         log.trace(f"videoDetails = {videoDetails!r}")
-        return validate.validate(
-            validate.union_get("videoId", "author", "title", "isLive"),
-            videoDetails)
+        return videoDetails
 
     @classmethod
     def _schema_streamingdata(cls, data):
@@ -306,8 +327,8 @@ class YouTube(Plugin):
             if not self._data_status(data, True):
                 return
 
-        video_id, self.author, self.title, is_live = self._schema_videodetails(data)
-        log.debug(f"Using video ID: {video_id}")
+        self.id, self.author, self.category, self.title, is_live = self._schema_videodetails(data)
+        log.debug(f"Using video ID: {self.id}")
 
         if is_live:
             log.debug("This video is live.")

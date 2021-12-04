@@ -12,7 +12,7 @@ from Crypto.Cipher import AES
 # noinspection PyPackageRequirements
 from Crypto.Util.Padding import unpad
 from requests import Response
-from requests.exceptions import ChunkedEncodingError, ConnectionError, ContentDecodingError
+from requests.exceptions import ChunkedEncodingError, ConnectionError, ContentDecodingError, StreamConsumedError
 
 from streamlink.exceptions import StreamError
 from streamlink.stream.ffmpegmux import FFMPEGMuxer, MuxedStream
@@ -164,11 +164,22 @@ class HLSStreamWriter(SegmentedStreamWriter):
                 if not self.reader.filter_event.is_set():
                     log.info("Resuming stream output")
                     self.reader.filter_event.set()
+        else:
+            self._write_discard(sequence, *args, **kwargs)
+            # block reader thread if filtering out segments
+            if self.reader.filter_event.is_set():
+                log.info("Filtering out segments and pausing stream output")
+                self.reader.filter_event.clear()
 
-        # block reader thread if filtering out segments
-        elif self.reader.filter_event.is_set():
-            log.info("Filtering out segments and pausing stream output")
-            self.reader.filter_event.clear()
+    def _write_discard(self, sequence: Sequence, res: Response, is_map: bool):
+        # The full response needs to actually be read from the socket
+        # even if there isn't any intention of using the payload
+        try:
+            for _ in res.iter_content(self.chunk_size):
+                pass
+        except (ChunkedEncodingError, ContentDecodingError,
+                ConnectionError, StreamConsumedError):
+            pass
 
     def _write(self, sequence: Sequence, res: Response, is_map: bool):
         if sequence.segment.key and sequence.segment.key.method != "NONE":

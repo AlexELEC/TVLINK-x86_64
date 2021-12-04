@@ -11,7 +11,7 @@
   <table class="table" width="100%" border="2" >
 
     <tr>
-      <th width="1%" >Logo</th>
+      <th bgcolor="Gainsboro" width="1%" >Logo</th>
       <th width="2%" >Map</th>
       <th width="10%" ><a href="#" onClick="sortTo('names')">Name</a></th>
       <th width="10%" ><a href="#" onClick="sortTo('groups')">Group</a></th>
@@ -31,7 +31,7 @@
         from utils import get_logo
         logo_url = get_logo(row[0], srcName)
       %>
-      <td>
+      <td bgcolor="Gainsboro">
         <img src="{{logo_url}}" style="border:0;width:45%;" >
       </td>
       <!-- Map -->

@@ -84,6 +84,17 @@
           </select>
         </td>
       </tr>
+      <!-- Auth Login -->
+      % if auth_webui == 'true':
+      <tr>
+        <td>
+          <label class="form-control">Login (webUI)</label>
+        </td>
+        <td>
+          <input id="webui_user" class="form-control" type="text" value="{{webui_user}}" onchange="server.set_webui_user()" >
+        </td>
+      </tr>
+      % end
 
     </table>
 
@@ -131,6 +142,27 @@
           <span class="slider round"></span></label>
         </td>
       </tr>
+      <!-- Authentication -->
+      <tr>
+        <td>
+          <label class="form-control">Authentication webUI</label>
+        </td>
+        <td><label class="switch">
+          <input id="auth_webui" type="checkbox" onClick="server.webui_auth()" {{'checked="checked"' if auth_webui == 'true' else ""}} >
+          <span class="slider round"></span></label>
+        </td>
+      </tr>
+      <!-- Auth Password -->
+      % if auth_webui == 'true':
+      <tr>
+        <td>
+          <label class="form-control">Password (webUI)</label>
+        </td>
+        <td>
+          <input id="webui_pass" class="form-control" type="password" value="{{webui_pass}}" onchange="server.set_webui_pass()" >
+        </td>
+      </tr>
+      % end
 
     </table>
 

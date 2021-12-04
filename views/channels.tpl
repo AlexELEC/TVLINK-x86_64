@@ -17,7 +17,7 @@
   <table class="table" width="100%" border="2" >
 
     <tr>
-      <th width="2%" >Logo</th>
+      <th bgcolor="Gainsboro" width="2%" >Logo</th>
       <th width="1%" ><a href="#" onClick="sortTo('number')">Num</a></th>
       <th width="10%" ><a href="#" onClick="sortTo('names')">Name</a></th>
       <th width="10%" ><a href="#" onClick="sortTo('groups')">Group</a></th>
@@ -39,7 +39,7 @@
         from utils import get_logo
         logo_url = get_logo(row[0])
       %>
-      <td>
+      <td bgcolor="Gainsboro">
         <button class="btn" style="border:0" onClick="server.show_modal_logo('{{ids}}')" >
           <img id="{{ids}}" src="{{logo_url}}" style="width:60%" >
         </button>
