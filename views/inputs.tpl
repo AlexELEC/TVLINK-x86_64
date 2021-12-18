@@ -11,7 +11,7 @@
   <table class="table" width="100%" border="2" >
 
     <tr>
-      <th bgcolor="Gainsboro" width="1%" >Logo</th>
+      <th width="1%" >Logo</th>
       <th width="2%" >Map</th>
       <th width="10%" ><a href="#" onClick="sortTo('names')">Name</a></th>
       <th width="10%" ><a href="#" onClick="sortTo('groups')">Group</a></th>
@@ -31,13 +31,13 @@
         from utils import get_logo
         logo_url = get_logo(row[0], srcName)
       %>
-      <td bgcolor="Gainsboro">
+      <td bgcolor="2C3E50">
         <img src="{{logo_url}}" style="border:0;width:45%;" >
       </td>
       <!-- Map -->
       <td>
         <label class="switch">
-          <input type="checkbox" onClick="server.chbox_map_channel('{{row[0]}}', '{{row[1]}}', '{{row[2]}}', '{{row[3]}}', '{{row[4]}}')" >
+          <input type="checkbox" onClick='server.chbox_map_channel("{{row[0]}}", "{{row[1]}}", "{{row[2]}}", "{{row[3]}}", "{{row[4]}}")' >
         <span class="slider round"></span></label>
       </td>
       <!-- Title -->
@@ -82,6 +82,7 @@
         <ul class="navbar-nav">
           <button class="btn" onclick="window.location.href='/inputs/{{srcName}}'" ><i class="fa fa-fast-backward" style="font-size:20px;color:white" ></i></button>
           <button class="btn" onclick="window.location.href='/inputs/{{srcName}}/{{page-1}}'" {{'disabled="disabled"' if page <= 1 else ""}} ><i class="fa fa-backward" style="font-size:20px;color:white" ></i></button>
+          <label style="font-size:20px;color:white;font-weight:bold;">&nbsp;&nbsp;&nbsp;{{page}}&nbsp;&nbsp;&nbsp;</label>
           <button class="btn" onclick="window.location.href='/inputs/{{srcName}}/{{page+1}}'" {{'disabled="disabled"' if page >= last_page else ""}} ><i class="fa fa-forward" style="font-size:20px;color:white" ></i></button>
           <button class="btn" onclick="window.location.href='/inputs/{{srcName}}/{{last_page}}'" ><i class="fa fa-fast-forward" style="font-size:20px;color:white" ></i></button>
         </ul>

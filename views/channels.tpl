@@ -17,7 +17,7 @@
   <table class="table" width="100%" border="2" >
 
     <tr>
-      <th bgcolor="Gainsboro" width="2%" >Logo</th>
+      <th width="2%" >Logo</th>
       <th width="1%" ><a href="#" onClick="sortTo('number')">Num</a></th>
       <th width="10%" ><a href="#" onClick="sortTo('names')">Name</a></th>
       <th width="10%" ><a href="#" onClick="sortTo('groups')">Group</a></th>
@@ -39,7 +39,7 @@
         from utils import get_logo
         logo_url = get_logo(row[0])
       %>
-      <td bgcolor="Gainsboro">
+      <td bgcolor="2C3E50">
         <button class="btn" style="border:0" onClick="server.show_modal_logo('{{ids}}')" >
           <img id="{{ids}}" src="{{logo_url}}" style="width:60%" >
         </button>
@@ -84,7 +84,7 @@
       <!-- Control -->
       % ids = 'ctl_' + row[0]
       <td>
-        <button class="btn" onClick="server.show_info_modal('{{row[0]}}', '{{row[1]}}')" ><i class="fa fa-info-circle" style="font-size:26px;color:black" ></i></button>
+        <button class="btn" onClick='server.show_info_modal("{{row[0]}}", "{{row[1]}}")' ><i class="fa fa-info-circle" style="font-size:26px;color:black" ></i></button>
         <button class="btn" onClick="server.show_join_modal('{{ids}}')" ><i class="fa fa-link" style="font-size:26px;color:blue" ></i></button>
         <button class="btn" onClick="server.show_split_modal('{{ids}}')" ><i class="fa fa-chain-broken" style="font-size:26px;color:green" ></i></button>
         <button class="btn" onClick="server.del_channel_button('{{rowID}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
@@ -131,6 +131,7 @@
         <ul class="navbar-nav">
           <button class="btn" onclick="window.location.href='/channels'" ><i class="fa fa-fast-backward" style="font-size:20px;color:white" ></i></button>
           <button class="btn" onclick="window.location.href='/channels/{{page-1}}'" {{'disabled="disabled"' if page <= 1 else ""}} ><i class="fa fa-backward" style="font-size:20px;color:white" ></i></button>
+          <label style="font-size:20px;color:white;font-weight:bold;">&nbsp;&nbsp;&nbsp;{{page}}&nbsp;&nbsp;&nbsp;</label>
           <button class="btn" onclick="window.location.href='/channels/{{page+1}}'" {{'disabled="disabled"' if page >= last_page else ""}} ><i class="fa fa-forward" style="font-size:20px;color:white" ></i></button>
           <button class="btn" onclick="window.location.href='/channels/{{last_page}}'" ><i class="fa fa-fast-forward" style="font-size:20px;color:white" ></i></button>
         </ul>

@@ -12,6 +12,12 @@
     function modalClose(winID) {
         document.getElementById(winID).style.display = "none";
     }
+    function delToken(usrToken) {
+        if (confirm(usrToken + ": delete this Token?")) {
+            server.del_token(usrToken);
+            location.reload(true);
+        }
+    }
   </script>
 
     <% tbl_head = '''
@@ -167,6 +173,44 @@
     </table>
 
   </div>
+
+  <!-- Authentication Token -->
+
+  % include('add-token.tpl')
+
+  <p>&nbsp;</p>
+  <b>Authentication Token (playlist/streams):</b>
+  <p>&nbsp;</p>
+
+  <form id="add_token" class="form-inline">
+    <button id="btn_add_token" type="button" onClick="server.add_token()">Add Token</button>
+  </form>
+  <p>&nbsp;</p>
+
+  <table class="table" width="100%" border="2" id="token_table" style={{"display:block" if in_token else "display:none"}} >
+
+    <tr>
+      <th width="5%" >Token</th>
+      <th width="10%" >Comment</th>
+    </tr>
+
+    <!-- in_token [ 0-usrToken, 1-usrText ] -->
+    % for row in in_token:
+    <tr>
+      <!-- Token -->
+      <td>
+        <a href="/{{row[0]}}/playlist">{{row[0]}}    </a>
+        <button class="btn" onClick="delToken('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
+      </td>
+      <!-- Comment -->
+      <td>
+        <label>{{row[1]}}</label>
+      </td>
+    </tr>
+    % end
+  </table>
+
+  <!-- Periodic reload settings -->
 
   <p>&nbsp;</p>
   <b>Periodic reload settings:</b>
@@ -487,7 +531,7 @@
     <div class="container justify-content-center"> <button class="navbar-toggler navbar-toggler-right border-0" type="button" data-toggle="collapse" data-target="#navbar_bottom">
         <span class="navbar-toggler-icon"></span>
       </button>
-      <a href="/reload" id="countCH" style="font-size:20px;color:white;font-weight:bold;">Reload program</a>
+      <a href="/reload" id="countCH" style="font-size:20px;color:white;font-weight:bold;">Apply Settings</a>
     </div>
   </nav>
 
