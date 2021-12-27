@@ -5,7 +5,7 @@ After=network-online.target
 [Service]
 ExecStart=/opt/tvlink/tvlink > /dev/null 2>&1
 ExecStop=/bin/kill -TERM $MAINPID
-ExecStopPost=/bin/rm -f /run/tvlink
+ExecStopPost=-/bin/rm -f /run/tvlink
 TimeoutStopSec=5
 Restart=always
 RestartSec=2
