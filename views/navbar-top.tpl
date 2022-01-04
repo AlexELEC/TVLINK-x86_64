@@ -11,7 +11,7 @@
           <li class="nav-item mx-2"> <a class="nav-link" href="/groups">Groups</a> </li>
           <li class="nav-item mx-2"> <a class="nav-link navbar-brand mr-0 text-white"href="/"><i class="fa d-inline fa-lg fa-television"></i><b> TVLINK</b></a> </li>
           <li class="nav-item mx-2"> <a class="nav-link" href="/settings">Settings</a> </li>
-          <li class="nav-item mx-2"> <a class="nav-link" href="/logs">Logs</a> </li>
+          <li class="nav-item mx-2"> <a class="nav-link" href="/status">Status</a> </li>
           <li class="nav-item mx-2"> <a class="nav-link" href="/about">About</a> </li>
         </ul>
       </div>

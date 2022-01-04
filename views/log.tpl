@@ -17,10 +17,10 @@
       // load log file
       $("#logger").load("/logger/tvlink.log");
 
-      // Then reload it every x seconds ...
+      // Then reload it every 10 seconds ...
       setInterval(function(){
         $("#logger").load("/logger/tvlink.log");
-      }, 5000);
+      }, 10000);
     });
   </script>
 

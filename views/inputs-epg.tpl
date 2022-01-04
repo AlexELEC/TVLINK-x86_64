@@ -63,6 +63,7 @@
         <ul class="navbar-nav">
           <button class="btn" onclick="window.location.href='/epginputs/{{srcName}}'" ><i class="fa fa-fast-backward" style="font-size:20px;color:white" ></i></button>
           <button class="btn" onclick="window.location.href='/epginputs/{{srcName}}/{{page-1}}'" {{'disabled="disabled"' if page <= 1 else ""}} ><i class="fa fa-backward" style="font-size:20px;color:white" ></i></button>
+          <label style="font-size:20px;color:white;font-weight:bold;">&nbsp;&nbsp;&nbsp;{{page}}&nbsp;&nbsp;&nbsp;</label>
           <button class="btn" onclick="window.location.href='/epginputs/{{srcName}}/{{page+1}}'" {{'disabled="disabled"' if page >= last_page else ""}} ><i class="fa fa-forward" style="font-size:20px;color:white" ></i></button>
           <button class="btn" onclick="window.location.href='/epginputs/{{srcName}}/{{last_page}}'" ><i class="fa fa-fast-forward" style="font-size:20px;color:white" ></i></button>
         </ul>
