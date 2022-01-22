@@ -25,7 +25,7 @@
     <tr>
       <!-- Client -->
       <td>
-        <label>{{client}}</label>
+        <label>{{client}}  </label><button class="btn" onClick='server.next_channel("{{chID}}", "{{client}}")' ><i class="fa fa-exchange" style="font-size:20px;color:red" ></i></button>
       </td>
       <!-- Channel -->
       <td>

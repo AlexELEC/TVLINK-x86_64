@@ -1,10 +1,10 @@
 import logging
 import re
 import struct
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 from concurrent.futures import Future
 from threading import Event
-from typing import List, NamedTuple, Optional, Union
+from typing import List, NamedTuple, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 # noinspection PyPackageRequirements
@@ -16,7 +16,7 @@ from requests.exceptions import ChunkedEncodingError, ConnectionError, ContentDe
 
 from streamlink.exceptions import StreamError
 from streamlink.stream.ffmpegmux import FFMPEGMuxer, MuxedStream
-from streamlink.stream.hls_playlist import Key, M3U8, Map, Segment, load as load_hls_playlist
+from streamlink.stream.hls_playlist import ByteRange, Key, M3U8, Map, Segment, load as load_hls_playlist
 from streamlink.stream.http import HTTPStream
 from streamlink.stream.segmented import SegmentedStreamReader, SegmentedStreamWorker, SegmentedStreamWriter
 from streamlink.utils import Formatter, LRUCache
@@ -29,12 +29,43 @@ class Sequence(NamedTuple):
     segment: Segment
 
 
+class ByteRangeOffset:
+    sequence: Sequence.num = None
+    offset: int = None
+
+    @staticmethod
+    def _calc_end(start: int, size: ByteRange.range):
+        return start + max(size - 1, 0)
+
+    def cached(self, sequence: Sequence.num, byterange: ByteRange) -> Tuple[int, int]:
+        if byterange.offset is not None:
+            bytes_start = byterange.offset
+        elif self.offset is not None and self.sequence == sequence - 1:
+            bytes_start = self.offset
+        else:
+            raise StreamError("Missing BYTERANGE offset")
+
+        bytes_end = self._calc_end(bytes_start, byterange.range)
+
+        self.sequence = sequence
+        self.offset = bytes_end + 1
+
+        return bytes_start, bytes_end
+
+    def uncached(self, byterange: ByteRange) -> Tuple[int, int]:
+        bytes_start = byterange.offset
+        if bytes_start is None:
+            raise StreamError("Missing BYTERANGE offset")
+
+        return bytes_start, self._calc_end(bytes_start, byterange.range)
+
+
 class HLSStreamWriter(SegmentedStreamWriter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         options = self.session.options
 
-        self.byterange_offsets = defaultdict(int)
+        self.byterange: ByteRangeOffset = ByteRangeOffset()
         self.map_cache: LRUCache[Sequence.segment.map.uri, Future] = LRUCache(self.threads)
         self.key_data = None
         self.key_uri = None
@@ -86,19 +117,16 @@ class HLSStreamWriter(SegmentedStreamWriter):
 
         return AES.new(self.key_data, AES.MODE_CBC, iv)
 
-    def create_request_params(self, segment: Union[Segment, Map]):
+    def create_request_params(self, num: Sequence.num, segment: Union[Segment, Map], is_map: bool):
         request_params = dict(self.reader.request_params)
         headers = request_params.pop("headers", {})
 
         if segment.byterange:
-            bytes_start = self.byterange_offsets[segment.uri]
-            if segment.byterange.offset is not None:
-                bytes_start = segment.byterange.offset
-
-            bytes_len = max(segment.byterange.range - 1, 0)
-            bytes_end = bytes_start + bytes_len
+            if is_map:
+                bytes_start, bytes_end = self.byterange.uncached(segment.byterange)
+            else:
+                bytes_start, bytes_end = self.byterange.cached(num, segment.byterange)
             headers["Range"] = f"bytes={bytes_start}-{bytes_end}"
-            self.byterange_offsets[segment.uri] = bytes_end + 1
 
         request_params["headers"] = headers
 
@@ -127,28 +155,33 @@ class HLSStreamWriter(SegmentedStreamWriter):
 
     def fetch(self, sequence: Sequence) -> Optional[Response]:
         try:
-            return self._fetch(sequence.segment, not sequence.segment.key)
-        except StreamError as err:  # pragma: no cover
+            return self._fetch(
+                sequence.segment.uri,
+                stream=not sequence.segment.key,
+                **self.create_request_params(sequence.num, sequence.segment, False)
+            )
+        except StreamError as err:
             log.error(f"Failed to fetch segment {sequence.num}: {err}")
 
     def fetch_map(self, sequence: Sequence) -> Optional[Response]:
         try:
-            return self._fetch(sequence.segment.map, False)
-        except StreamError as err:  # pragma: no cover
+            return self._fetch(
+                sequence.segment.map.uri,
+                stream=False,
+                **self.create_request_params(sequence.num, sequence.segment.map, True)
+            )
+        except StreamError as err:
             log.error(f"Failed to fetch map for segment {sequence.num}: {err}")
 
-    def _fetch(self, segment: Union[Segment, Map], stream: bool) -> Optional[Response]:
+    def _fetch(self, url: str, **request_params) -> Optional[Response]:
         if self.closed or not self.retries:  # pragma: no cover
             return
 
-        request_params = self.create_request_params(segment)
-
         return self.session.http.get(
-            segment.uri,
-            stream=stream,
+            url,
             timeout=self.timeout,
-            exception=StreamError,
             retries=self.retries,
+            exception=StreamError,
             **request_params
         )
 
@@ -177,8 +210,7 @@ class HLSStreamWriter(SegmentedStreamWriter):
         try:
             for _ in res.iter_content(self.chunk_size):
                 pass
-        except (ChunkedEncodingError, ContentDecodingError,
-                ConnectionError, StreamConsumedError):
+        except (ChunkedEncodingError, ContentDecodingError, ConnectionError, StreamConsumedError):
             pass
 
     def _write(self, sequence: Sequence, res: Response, is_map: bool):
