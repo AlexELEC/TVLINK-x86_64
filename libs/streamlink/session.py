@@ -59,8 +59,7 @@ class Streamlink:
             "mux-subtitles": False,
             "locale": None,
             "user-input-requester": None,
-            "chunk-size-ts": 8192,
-            "chunk-size-hls": 8192
+            "chunk-size": 8192
         })
         if options:
             self.options.update(options)

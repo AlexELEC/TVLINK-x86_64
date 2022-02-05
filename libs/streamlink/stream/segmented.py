@@ -62,14 +62,6 @@ class SegmentedStreamWorker(Thread):
         log.debug("Closing worker thread")
 
         self.closed = True
-        # cleanup SegmentedStreamWorker
-        self.writer.put(None)
-        self.writer.close()
-        self.writer = None
-        self.reader = None
-        self.stream = None
-        self.session = None
-        # ---
         self._wait.set()
 
     def wait(self, time):
@@ -152,10 +144,6 @@ class SegmentedStreamWriter(Thread):
 
         self.closed = True
         self.reader.close()
-        # cleanup SegmentedStreamWriter
-        self.stream = None
-        self.session = None
-        # ---
         self.executor.shutdown(wait=True, cancel_futures=True)
 
     def put(self, segment):

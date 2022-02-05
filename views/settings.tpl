@@ -321,10 +321,10 @@
       % buf_values = [5,10,20,30,40,50,80,100,150,200]
       % chunk_values = [8192, 16384, 24576, 32768, 65536]
 
-      <!-- Stream Buffer -->
+      <!-- Ring Buffer -->
       <tr>
         <td >
-          <label class="form-control">Stream buffer (Mb)</label>
+          <label class="form-control">Stream Ring buffer (Mb)</label>
         </td>
         <td>
           <select id="ring_buffer" class="form-control" onchange="server.setting_options('ring_buffer')" >
@@ -334,28 +334,15 @@
           </select>
         </td>
       </tr>
-      <!-- TS chunk size -->
+      <!-- Chunk size -->
       <tr>
         <td >
-          <label class="form-control">TS chunk size</label>
+          <label class="form-control">Chunk size (byte)</label>
         </td>
         <td>
-          <select id="chunk_size_ts" class="form-control" onchange="server.setting_options('chunk_size_ts')" >
+          <select id="chunk_size" class="form-control" onchange="server.setting_options('chunk_size')" >
             % for tchunk in chunk_values:
-            <option {{'selected' if tchunk == int(chunk_size_ts) else ""}} >{{tchunk}}</option>
-            % end
-          </select>
-        </td>
-      </tr>
-      <!-- HLS chunk size -->
-      <tr>
-        <td >
-          <label class="form-control">HLS chunk size</label>
-        </td>
-        <td>
-          <select id="chunk_size_hls" class="form-control" onchange="server.setting_options('chunk_size_hls')" >
-            % for tchunk in chunk_values:
-            <option {{'selected' if tchunk == int(chunk_size_hls) else ""}} >{{tchunk}}</option>
+            <option {{'selected' if tchunk == int(chunk_size) else ""}} >{{tchunk}}</option>
             % end
           </select>
         </td>
@@ -363,12 +350,25 @@
       <!-- Stream Timeout -->
       <tr>
         <td>
-          <label class="form-control">Stream/Segment timeout (sec)</label>
+          <label class="form-control">Stream timeout (sec)</label>
         </td>
         <td>
           <select id="stream_timeout" class="form-control" onchange="server.setting_options('stream_timeout')" >
             % for ht_tout in range(1,61):
             <option {{'selected' if ht_tout == int(stream_timeout) else ""}} >{{ht_tout}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
+      <!-- Segment Timeout -->
+      <tr>
+        <td>
+          <label class="form-control">Segment timeout (sec)</label>
+        </td>
+        <td>
+          <select id="segment_timeout" class="form-control" onchange="server.setting_options('segment_timeout')" >
+            % for ht_tout in range(1,61):
+            <option {{'selected' if ht_tout == int(segment_timeout) else ""}} >{{ht_tout}}</option>
             % end
           </select>
         </td>

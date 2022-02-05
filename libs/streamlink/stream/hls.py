@@ -70,7 +70,7 @@ class HLSStreamWriter(SegmentedStreamWriter):
         self.key_data = None
         self.key_uri = None
         self.key_uri_override = options.get("hls-segment-key-uri")
-        self.chunk_size = options.get("chunk-size-hls")
+        self.chunk_size = options.get("chunk-size")
 
         self.ignore_names = False
         ignore_names = {*options.get("hls-segment-ignore-names")}
@@ -225,7 +225,6 @@ class HLSStreamWriter(SegmentedStreamWriter):
             data = res.content
             # If the input data is not a multiple of 16, cut off any garbage
             garbage_len = len(data) % AES.block_size
-            #print ('\n--- Data len: {} ---\n'.format(len(data)))
             if garbage_len:
                 log.debug(f"Cutting off {garbage_len} bytes of garbage before decrypting")
                 decrypted_chunk = decryptor.decrypt(data[:-garbage_len])
@@ -235,7 +234,6 @@ class HLSStreamWriter(SegmentedStreamWriter):
             chunk = unpad(decrypted_chunk, AES.block_size, style="pkcs7")
             self.reader.buffer.write(chunk)
         else:
-            #print ('chunk-size-hls:', self.chunk_size)
             try:
                 for chunk in res.iter_content(self.chunk_size):
                     self.reader.buffer.write(chunk)

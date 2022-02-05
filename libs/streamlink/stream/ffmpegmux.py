@@ -90,7 +90,7 @@ class FFMPEGMuxer(StreamIO):
         self.session = session
         self.process = None
         self.streams = streams
-        self.chunk_size = int(session.options.get("chunk-size-hls"))
+        self.chunk_size = int(session.options.get("chunk-size"))
 
         self.pipes = [NamedPipe() for _ in self.streams]
         self.pipe_threads = [threading.Thread(target=self.copy_to_pipe, args=(stream, np, self.chunk_size))
