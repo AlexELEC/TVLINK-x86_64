@@ -19,7 +19,7 @@ class Online_Parser(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag == 'iframe':
             attrs = dict(attrs)
-            if 'name' in attrs and attrs['name'] == 'twttrHubFrameSecure':
+            if 'src' in attrs and 'embed' in attrs['src']:
                 self.iframe_url = attrs['src']
 
 
