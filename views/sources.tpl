@@ -70,23 +70,19 @@
 
   <table class="table" width="100%" border="2" id="m3u_table" style={{"display:block" if checked_m3u == 1 and is_m3u else "display:none"}} >
 
-    <% tbl_head = '''
     <tr>
       <th width="4%" >Name</th>
+      <th width="2%" >Catchup</th>
       <th width="2%" >Enable</th> 
       <th width="2%" >Prio</th>
-       <!-- <th width="2%" >Prio mode</th> -->
       <th width="2%" >Add channels</th>
       <th width="2%" >New channels</th>
       <th width="2%" >Update period</th>
-      <th width="3%" >Update</th>
-      <th width="3%" >Links</th>
-    </tr>'''
-    %>
+      <th width="4%" >Update</th>
+      <th width="1%" >Links</th>
+    </tr>
 
-    {{!tbl_head}}
-
-    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-prioMode, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh ] -->
+    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh ] -->
     % for row in in_srcs:
     % if row[2] == 'Playlists':
     <tr>
@@ -97,6 +93,14 @@
           <button class="btn" onClick="server.show_m3u_info('{{row[0]}}')" ><i class="fa fa-info-circle" style="font-size:26px;color:blue" ></i></button>
           <button class="btn" onClick="delSource('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
+      <!-- Catchup -->
+      % ids = 'arg_' + row[0]
+      <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
+        % for cath in ['none', 'append', 'flussonic', 'shift']:
+          <option {{'selected' if cath == row[4] else ""}} >{{cath}}</option>
+        % end
+        </select>
+      </td>
       <!-- Enable -->
       <td><label class="switch">
         % ids = 'src_' + row[0]
@@ -180,9 +184,18 @@
 
   <table class="table" width="100%" border="2" id="addon_table" style={{"display:block" if checked_addon == 1 and is_addon else "display:none"}} >
 
-    {{!tbl_head}}
+    <tr>
+      <th width="4%" >Name</th>
+      <th width="2%" >Enable</th> 
+      <th width="2%" >Prio</th>
+      <th width="2%" >Add channels</th>
+      <th width="2%" >New channels</th>
+      <th width="2%" >Update period</th>
+      <th width="3%" >Update</th>
+      <th width="3%" >Links</th>
+    </tr>
 
-    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-prioMode, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh ] -->
+    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh ] -->
     % for row in in_srcs:
     % if row[2] == 'Addons':
     <tr>

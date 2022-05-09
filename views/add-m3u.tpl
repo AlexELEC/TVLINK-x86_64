@@ -7,7 +7,7 @@
           <b><h4 class="modal-title" ></h4>Add new playlist</b>
         </div>
         <div class="modal-body">
-          <p>Playlist name (for catchup/archive add ending: "_append", "_shift" or "_flussonic"):</p>
+          <p>Playlist name:</p>
           <input id="m3u_name" class="form-control" style="width:30%" type="text" value="" onClick="this.select();">
           <p>&nbsp;</p>
           <p>Playlist path:</p>

@@ -15,12 +15,15 @@ class YouTVHLS(HLSStream):
         self._url = url
         self.stats_url = self_url.replace('/NzM=/master.m3u8', '/stats')
         self.watch_timeout = int(time()) + 80
+        self.headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:99.0) Gecko/20100101 Firefox/99.0',
+                        'Accept': '*/*',
+                        'Referer': 'https://youtv.ua/'}
 
     @property
     def url(self):
         if int(time()) >= self.watch_timeout:
-            log.debug("***YouTV addon send stats...***")
-            res = self.session.http.get(self.stats_url)
+            log.debug(f"***YouTV addon send stats: {self.stats_url}***")
+            res = self.session.http.get(self.stats_url, headers=self.headers)
             self.watch_timeout = int(time()) + 80
         return self._url
 
