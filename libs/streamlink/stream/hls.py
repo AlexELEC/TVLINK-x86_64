@@ -3,7 +3,7 @@ import re
 import struct
 from concurrent.futures import Future
 from threading import Event
-from typing import List, NamedTuple, Optional, Tuple, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 # noinspection PyPackageRequirements
@@ -11,7 +11,7 @@ from Crypto.Cipher import AES
 # noinspection PyPackageRequirements
 from Crypto.Util.Padding import unpad
 from requests import Response
-from requests.exceptions import ChunkedEncodingError, ConnectionError, ContentDecodingError, StreamConsumedError
+from requests.exceptions import ChunkedEncodingError, ConnectionError, ContentDecodingError
 
 from streamlink.exceptions import StreamError
 from streamlink.stream.ffmpegmux import FFMPEGMuxer, MuxedStream
@@ -69,6 +69,7 @@ class HLSStreamWriter(SegmentedStreamWriter):
         self.key_data = None
         self.key_uri = None
         self.key_uri_override = options.get("hls-segment-key-uri")
+        self.stream_data = options.get("hls-segment-stream-data")
         self.chunk_size = options.get("chunk-size")
 
         self.ignore_names = False
@@ -86,7 +87,7 @@ class HLSStreamWriter(SegmentedStreamWriter):
             raise StreamError(f"Unable to decrypt cipher {key.method}")
 
         if not self.key_uri_override and not key.uri:
-            raise StreamError("Missing URI to decryption key")
+            raise StreamError("Missing URI for decryption key")
 
         if self.key_uri_override:
             p = urlparse(key.uri)
@@ -156,7 +157,7 @@ class HLSStreamWriter(SegmentedStreamWriter):
         try:
             return self._fetch(
                 sequence.segment.uri,
-                stream=not sequence.segment.key,
+                stream=self.stream_data,
                 **self.create_request_params(sequence.num, sequence.segment, False)
             )
         except StreamError as err:
@@ -187,63 +188,63 @@ class HLSStreamWriter(SegmentedStreamWriter):
     def should_filter_sequence(self, sequence: Sequence) -> bool:
         return self.ignore_names and self.ignore_names.search(sequence.segment.uri) is not None
 
-    def write(self, sequence: Sequence, *args, **kwargs):
+    def write(self, sequence: Sequence, result: Response, *data):
         if not self.should_filter_sequence(sequence):
             try:
-                return self._write(sequence, *args, **kwargs)
+                return self._write(sequence, result, *data)
             finally:
                 # unblock reader thread after writing data to the buffer
                 if not self.reader.filter_event.is_set():
                     log.info("Resuming stream output")
                     self.reader.filter_event.set()
+
         else:
-            self._write_discard(sequence, *args, **kwargs)
+            # Read and discard any remaining HTTP response data in the response connection.
+            # Unread data in the HTTPResponse connection blocks the connection from being released back to the pool.
+            result.raw.drain_conn()
+
             # block reader thread if filtering out segments
             if self.reader.filter_event.is_set():
                 log.info("Filtering out segments and pausing stream output")
                 self.reader.filter_event.clear()
 
-    def _write_discard(self, sequence: Sequence, res: Response, is_map: bool):
-        # The full response needs to actually be read from the socket
-        # even if there isn't any intention of using the payload
-        try:
-            for _ in res.iter_content(self.chunk_size):
-                pass
-        except (ChunkedEncodingError, ContentDecodingError, ConnectionError, StreamConsumedError):
-            pass
-
-    def _write(self, sequence: Sequence, res: Response, is_map: bool):
+    def _write(self, sequence: Sequence, result: Response, is_map: bool):
         if sequence.segment.key and sequence.segment.key.method != "NONE":
             try:
                 decryptor = self.create_decryptor(sequence.segment.key, sequence.num)
-            except StreamError as err:
+            except (StreamError, ValueError) as err:
                 log.error(f"Failed to create decryptor: {err}")
                 self.close()
                 return
 
-            data = res.content
-            # If the input data is not a multiple of 16, cut off any garbage
-            garbage_len = len(data) % AES.block_size
-            if garbage_len:
-                log.debug(f"Cutting off {garbage_len} bytes of garbage before decrypting")
-                decrypted_chunk = decryptor.decrypt(data[:-garbage_len])
-            else:
-                decrypted_chunk = decryptor.decrypt(data)
+            try:
+                # Unlike plaintext segments, encrypted segments can't be written to the buffer in small chunks
+                # because of the byte padding at the end of the decrypted data, which means that decrypting in
+                # smaller chunks is unnecessary if the entire segment needs to be kept in memory anyway, unless
+                # we defer the buffer writes by one read call and apply the unpad call only to the last read call.
+                encrypted_chunk = result.content
+                decrypted_chunk = decryptor.decrypt(encrypted_chunk)
+                chunk = unpad(decrypted_chunk, AES.block_size, style="pkcs7")
+                self.reader.buffer.write(chunk)
+            except (ChunkedEncodingError, ContentDecodingError, ConnectionError) as err:
+                log.error(f"Download of segment {sequence.num} failed: {err}")
+                return
+            except ValueError as err:
+                log.error(f"Error while decrypting segment {sequence.num}: {err}")
+                return
 
-            chunk = unpad(decrypted_chunk, AES.block_size, style="pkcs7")
-            self.reader.buffer.write(chunk)
         else:
             try:
-                for chunk in res.iter_content(self.chunk_size):
+                for chunk in result.iter_content(self.chunk_size):
                     self.reader.buffer.write(chunk)
             except (ChunkedEncodingError, ContentDecodingError, ConnectionError) as err:
-                log.error(f"Download of segment {sequence.num} failed ({err})")
+                log.error(f"Download of segment {sequence.num} failed: {err}")
                 return
 
         if is_map:
-            log.debug(f"Segment initialization {sequence.num} complete")
+            log.debug(f"+ Segment initialization {sequence.num} complete")
         else:
-            log.debug(f"Segment {sequence.num} complete")
+            log.debug(f"+ Segment {sequence.num} complete")
 
 
 class HLSStreamWorker(SegmentedStreamWorker):
@@ -263,6 +264,8 @@ class HLSStreamWorker(SegmentedStreamWorker):
         self.duration_limit = self.stream.duration or (
             int(self.session.options.get("hls-duration")) if self.session.options.get("hls-duration") else None)
         self.hls_live_restart = self.stream.force_restart or self.session.options.get("hls-live-restart")
+        self.hls_stream_data = self.session.options.get("hls-segment-stream-data")
+        self.hls_segments_queue = self.session.options.get("segments-queue")
 
     def _reload_playlist(self, text, url):
         return load_hls_playlist(text, url)
@@ -376,9 +379,11 @@ class HLSStreamWorker(SegmentedStreamWorker):
             self.playlist_sequence = self.duration_to_sequence(self.duration_offset_start, self.playlist_sequences)
 
         if self.playlist_sequences:
+            log.debug(f"HLS Stream Data: {self.hls_stream_data}")
+            log.debug(f"HLS Segments Queue: {self.hls_segments_queue}")
+            log.debug(f"HLS Live Restart: {self.hls_live_restart}")
             log.debug(f"First Sequence: {self.playlist_sequences[0].num}; "
                       f"Last Sequence: {self.playlist_sequences[-1].num}")
-            log.debug(f"HLS Live Restart: {self.hls_live_restart}")
             log.debug(f"Start offset: {self.duration_offset_start}; "
                       f"Duration: {self.duration_limit}; "
                       f"Start Sequence: {self.playlist_sequence}; "
@@ -388,8 +393,8 @@ class HLSStreamWorker(SegmentedStreamWorker):
         total_duration = 0
         while not self.closed:
             for sequence in filter(self.valid_sequence, self.playlist_sequences):
-                #print (f"Adding segment {sequence.num} to queue:", sequence.segment.uri)
-                log.debug(f"Adding segment {sequence.num} to queue")
+                #log.debug(f"Adding segment: {sequence}")
+                log.debug(f"- Adding segment {sequence.num} to queue")
                 yield sequence
                 total_duration += sequence.segment.duration
                 if self.duration_limit and total_duration >= self.duration_limit:
@@ -455,9 +460,32 @@ class HLSStreamReader(SegmentedStreamReader):
 
 
 class MuxedHLSStream(MuxedStream):
+    """
+    Muxes multiple HLS video and audio streams into one output stream.
+    """
+
     __shortname__ = "hls-multi"
 
-    def __init__(self, session, video, audio, url_master=None, force_restart=False, ffmpeg_options=None, **args):
+    def __init__(
+        self,
+        session,
+        video: str,
+        audio: Union[str, List[str]],
+        url_master: Optional[str] = None,
+        force_restart: bool = False,
+        ffmpeg_options: Optional[Dict[str, Any]] = None,
+        **args
+    ):
+        """
+        :param streamlink.Streamlink session: Streamlink session instance
+        :param video: Video stream URL
+        :param audio: Audio stream URL or list of URLs
+        :param url_master: The URL of the HLS playlist's master/variant playlist
+        :param force_restart: Start from the beginning after reaching the playlist's end
+        :param ffmpeg_options: Additional keyword arguments passed to :class:`ffmpegmux.FFMPEGMuxer`
+        :param args: Additional keyword arguments passed to :class:`HLSStream`
+        """
+
         tracks = [video]
         maps = ["0:v?", "0:a?"]
         if audio:
@@ -474,39 +502,52 @@ class MuxedHLSStream(MuxedStream):
         self.url_master = url_master
 
     def to_manifest_url(self):
+        if self.url_master is None:
+            return super().to_manifest_url()
+
         return self.url_master
 
 
 class HLSStream(HTTPStream):
-    """Implementation of the Apple HTTP Live Streaming protocol
-
-    *Attributes:*
-
-    - :attr:`url` The URL to the HLS playlist.
-    - :attr:`args` A :class:`dict` containing keyword arguments passed
-      to :meth:`requests.request`, such as headers and cookies.
-
+    """
+    Implementation of the Apple HTTP Live Streaming protocol.
     """
 
     __shortname__ = "hls"
     __reader__ = HLSStreamReader
 
-    def __init__(self, session_, url, url_master=None, force_restart=False, start_offset=0, duration=None, **args):
+    def __init__(
+        self,
+        session_,
+        url: str,
+        url_master: Optional[str] = None,
+        force_restart: bool = False,
+        start_offset: float = 0,
+        duration: Optional[float] = None,
+        **args
+    ):
+        """
+        :param streamlink.Streamlink session_: Streamlink session instance
+        :param url: The URL of the HLS playlist
+        :param url_master: The URL of the HLS playlist's master/variant playlist
+        :param force_restart: Start from the beginning after reaching the playlist's end
+        :param start_offset: Number of seconds to be skipped from the beginning
+        :param duration: Number of seconds until ending the stream
+        :param args: Additional keyword arguments passed to :meth:`requests.request`
+        """
+
         super().__init__(session_, url, **args)
         self.url_master = url_master
         self.force_restart = force_restart
         self.start_offset = start_offset
         self.duration = duration
-        self.reader = None
-
-    def __repr__(self):
-        return f"<HLSStream({self.url!r}, {self.url_master!r})>"
+        self.reader = self.__reader__(self)
 
     def __json__(self):
         json = super().__json__()
 
         if self.url_master:
-            json["master"] = self.url_master
+            json["master"] = self.to_manifest_url()
 
         # Pretty sure HLS is GET only.
         del json["method"]
@@ -515,14 +556,17 @@ class HLSStream(HTTPStream):
         return json
 
     def to_manifest_url(self):
-        return self.url_master
+        if self.url_master is None:
+            return super().to_manifest_url()
+
+        args = self.args.copy()
+        args.update(url=self.url_master)
+
+        return self.session.http.prepare_new_request(**args).url
 
     def open(self):
-        reader = self.__reader__(self)
-        reader.open()
-        self.reader = reader
-
-        return reader
+        self.reader.open()
+        return self.reader
 
     def close(self):
         self.reader.close()
@@ -533,22 +577,33 @@ class HLSStream(HTTPStream):
         return load_hls_playlist(res.text, base_uri=res.url)
 
     @classmethod
-    def parse_variant_playlist(cls, session_, url, name_key="name",
-                               name_prefix="", check_streams=False,
-                               force_restart=False, name_fmt=None,
-                               start_offset=0, duration=None,
-                               **request_params):
-        """Attempts to parse a variant playlist and return its streams.
-
-        :param url: The URL of the variant playlist.
-        :param name_key: Prefer to use this key as stream name, valid keys are:
-                         name, pixels, bitrate.
-        :param name_prefix: Add this prefix to the stream names.
-        :param check_streams: Only allow streams that are accessible.
-        :param force_restart: Start at the first segment even for a live stream
-        :param name_fmt: A format string for the name, allowed format keys are
-                         name, pixels, bitrate.
+    def parse_variant_playlist(
+        cls,
+        session_,
+        url: str,
+        name_key: str = "name",
+        name_prefix: str = "",
+        check_streams: bool = False,
+        force_restart: bool = False,
+        name_fmt: Optional[str] = None,
+        start_offset: float = 0,
+        duration: Optional[float] = None,
+        **request_params
+    ) -> Dict[str, Union["HLSStream", "MuxedHLSStream"]]:
         """
+        Parse a variant playlist and return its streams.
+        :param streamlink.Streamlink session_: Streamlink session instance
+        :param url: The URL of the variant playlist
+        :param name_key: Prefer to use this key as stream name, valid keys are: name, pixels, bitrate
+        :param name_prefix: Add this prefix to the stream names
+        :param check_streams: Only allow streams that are accessible
+        :param force_restart: Start at the first segment even for a live stream
+        :param name_fmt: A format string for the name, allowed format keys are: name, pixels, bitrate
+        :param start_offset: Number of seconds to be skipped from the beginning
+        :param duration: Number of second until ending the stream
+        :param request_params: Additional keyword arguments passed to :class:`HLSStream` or :py:meth:`requests.request`
+        """
+
         locale = session_.localization
         audio_select = session_.options.get("hls-audio-select") or []
 

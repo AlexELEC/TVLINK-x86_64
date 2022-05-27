@@ -1,90 +1,81 @@
-import requests
+from typing import Dict
 
 from streamlink.exceptions import StreamError
 from streamlink.stream.stream import Stream
 from streamlink.stream.wrappers import StreamIOIterWrapper, StreamIOThreadWrapper
 
 
-VALID_ARGS = ("method", "url", "params", "headers", "cookies", "auth", "data", "json", "files")
-
-
-def normalize_key(keyval):
-    key, val = keyval
-    key = hasattr(key, "decode") and key.decode("utf8", "ignore") or key
-
-    return key, val
-
-
-def valid_args(args):
-    return {k: v for k, v in args.items() if k in VALID_ARGS}
-
-
 class HTTPStream(Stream):
-    """A HTTP stream using the requests library.
-
-    *Attributes:*
-
-    - :attr:`url`  The URL to the stream, prepared by requests.
-    - :attr:`args` A :class:`dict` containing keyword arguments passed
-      to :meth:`requests.request`, such as headers and cookies.
-
+    """
+    An HTTP stream using the :mod:`requests` library.
     """
 
     __shortname__ = "http"
 
-    def __init__(self, session_, url, buffered=True, **args):
-        Stream.__init__(self, session_)
+    args: Dict
+    """A dict of keyword arguments passed to :meth:`requests.Session.request`, such as method, headers, cookies, etc."""
 
+    def __init__(
+        self,
+        session_,
+        url: str,
+        buffered: bool = True,
+        **args
+    ):
+        """
+        :param streamlink.Streamlink session_: Streamlink session instance
+        :param url: The URL of the HTTP stream
+        :param buffered: Wrap stream output in an additional reader-thread
+        :param args: Additional keyword arguments passed to :meth:`requests.Session.request`
+        """
+
+        super().__init__(session_)
         self.args = dict(url=url, **args)
         self.buffered = buffered
-        self.fdclose = None
-
-    def __repr__(self):
-        return "<HTTPStream({0!r})>".format(self.url)
+        self.fd = None
 
     def __json__(self):
-        args = self.args.copy()
-        method = args.pop("method", "GET")
-        req = requests.Request(method=method, **valid_args(args))
-        req = self.session.http.prepare_request(req)
+        req = self.session.http.prepare_new_request(**self.args)
 
-        headers = dict(map(normalize_key, req.headers.items()))
-
-        return dict(type=type(self).shortname(), url=req.url,
-                    method=req.method, headers=headers,
-                    body=req.body)
-
-    @property
-    def url(self):
-        args = self.args.copy()
-        method = args.pop("method", "GET")
-        return requests.Request(method=method, **valid_args(args)).prepare().url
-
-    def open(self):
-        args = self.args.copy()
-        method = args.pop("method", "GET")
-        timeout = self.session.options.get("stream-timeout")
-        chunk_size = self.session.get_option("chunk-size")
-        res = self.session.http.request(
-            method=method,
-            stream=True,
-            exception=StreamError,
-            timeout=timeout,
-            **valid_args(args)
+        return dict(
+            type=self.shortname(),
+            method=req.method,
+            url=req.url,
+            headers=dict(req.headers),
+            body=req.body,
         )
-
-        fd = StreamIOIterWrapper(res.iter_content(chunk_size))
-        if self.buffered:
-            fd = StreamIOThreadWrapper(self.session, fd, timeout=timeout, chunk_size=chunk_size)
-
-        self.fdclose = fd
-
-        return fd
-
-    def close(self):
-        if self.fdclose:
-            self.fdclose.close()
-            self.fdclose = None
 
     def to_url(self):
         return self.url
+
+    @property
+    def url(self) -> str:
+        """
+        The URL to the stream, prepared by :mod:`requests` with parameters read from :attr:`args`.
+        """
+
+        return self.session.http.prepare_new_request(**self.args).url
+
+    def open(self):
+        reqargs = self.session.http.valid_request_args(**self.args)
+        reqargs.setdefault("method", "GET")
+        timeout = self.session.options.get("stream-timeout")
+        chunk_size = self.session.get_option("chunk-size")
+        res = self.session.http.request(
+            stream=True,
+            exception=StreamError,
+            timeout=timeout,
+            **reqargs,
+        )
+
+        if self.buffered:
+            self.fd = StreamIOThreadWrapper(self.session, fd, timeout=timeout, chunk_size=chunk_size)
+        else:
+            self.fd = StreamIOIterWrapper(res.iter_content(chunk_size))
+
+        return self.fd
+
+    def close(self):
+        if self.fd:
+            self.fd.close()
+            self.fd = None

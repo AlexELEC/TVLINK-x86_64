@@ -386,13 +386,6 @@
           </select>
         </td>
       </tr>
-
-    </table>
-
-    <table class="table" border="2" style="float:right;width:49%;display:block" >
-
-      {{!tbl_head}}
-
       <!-- Segment Threads -->
       <tr>
         <td>
@@ -402,6 +395,26 @@
           <select id="stream_segment_threads" class="form-control" onchange="server.setting_options('stream_segment_threads')" >
             % for thrd in range(1,11):
             <option {{'selected' if thrd == int(stream_segment_threads) else ""}} >{{thrd}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
+
+    </table>
+
+    <table class="table" border="2" style="float:right;width:49%;display:block" >
+
+      {{!tbl_head}}
+
+      <!-- Segments Queue -->
+      <tr>
+        <td>
+          <label class="form-control">Segments Queue</label>
+        </td>
+        <td>
+          <select id="segments_queue" class="form-control" onchange="server.setting_options('segments_queue')" >
+            % for ques in ['as threads', '4', '5', '6', '7', '8', '9', '10', '12', '16', '20']:
+            <option {{'selected' if ques == str(segments_queue) else ""}} >{{ques}}</option>
             % end
           </select>
         </td>
@@ -430,6 +443,18 @@
             <option {{'selected' if rltime == hls_playlist_reload_time else ""}} >{{rltime}}</option>
             % end
           </select>
+        </td>
+      </tr>
+      <!-- HLS Stream Data -->
+      <tr>
+        <td>
+          <label class="form-control">HLS Stream Data</label>
+        </td>
+        <td>
+          <label class="switch">
+          <input id="stream_data" type="checkbox" onClick="server.stream_data()" {{'checked="checked"' if stream_data == 'true' else ""}} >
+          <span class="slider round"></span>
+          </label>
         </td>
       </tr>
       <!-- HLS Live Restart -->

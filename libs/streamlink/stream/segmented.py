@@ -1,3 +1,4 @@
+import time
 import logging
 import queue
 from concurrent import futures
@@ -59,7 +60,7 @@ class SegmentedStreamWorker(Thread):
         if self.closed:  # pragma: no cover
             return
 
-        log.debug("Closing worker thread")
+        log.debug("*** Closing worker thread")
 
         self.closed = True
         self._wait.set()
@@ -82,7 +83,7 @@ class SegmentedStreamWorker(Thread):
 
     def run(self):
         for segment in self.iter_segments():
-            #print ('segment: ', segment)
+            #log.debug(f"--- Segment: {segment.num}")
             if self.closed:  # pragma: no cover
                 break
             self.writer.put(segment)
@@ -98,7 +99,7 @@ class SegmentedStreamWriter(Thread):
     and finally writing the data to the buffer.
     """
 
-    def __init__(self, reader, size=20, retries=None, threads=None, timeout=None):
+    def __init__(self, reader, retries=None, threads=None, timeout=None):
         self.closed = False
         self.reader = reader
         self.stream = reader.stream
@@ -110,6 +111,8 @@ class SegmentedStreamWriter(Thread):
         if not threads:
             threads = self.session.options.get("stream-segment-threads")
 
+        size = self.session.options.get("segments-queue")
+            
         if not timeout:
             timeout = self.session.options.get("stream-segment-timeout")
 
@@ -140,7 +143,7 @@ class SegmentedStreamWriter(Thread):
         if self.closed:  # pragma: no cover
             return
 
-        log.debug("Closing writer thread")
+        log.debug("*** Closing writer thread")
 
         self.closed = True
         self.reader.close()
@@ -252,27 +255,15 @@ class SegmentedStreamReader(StreamIO):
         self.worker.start()
 
     def close(self):
-        try: self.worker.close()
-        except: pass
-        try: self.writer.close()
-        except: pass
-        try: self.buffer.close()
-        except: pass
+        self.worker.close()
+        self.writer.close()
+        self.buffer.close()
 
         current = current_thread()
         if current is not self.worker:  # pragma: no branch
             self.worker.join(timeout=self.timeout)
         if current is not self.writer:  # pragma: no branch
             self.writer.join(timeout=self.timeout)
-        current = None
-
-        # cleanup SegmentedStreamReader
-        self.session = None
-        self.stream = None
-        self.buffer = None
-        self.writer = None
-        self.worker = None
-        log.debug("*** Done closing worker/writer threads ***")
 
     def read(self, size):
         if size:
