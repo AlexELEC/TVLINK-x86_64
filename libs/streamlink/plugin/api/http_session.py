@@ -45,7 +45,7 @@ class _HTTPResponse(urllib3.response.HTTPResponse):
 
 
 # override all urllib3.response.HTTPResponse references in requests.adapters.HTTPAdapter.send
-urllib3.connectionpool.HTTPConnectionPool.ResponseCls = _HTTPResponse
+urllib3.connectionpool.HTTPConnectionPool.ResponseCls = _HTTPResponse  # type: ignore[attr-defined]
 requests.adapters.HTTPResponse = _HTTPResponse
 
 
@@ -62,7 +62,7 @@ requests.adapters.HTTPResponse = _HTTPResponse
 # > encodings.
 if urllib3_version >= (1, 25, 4):
     class Urllib3UtilUrlPercentReOverride:
-        _re_percent_encoding: Pattern = urllib3.util.url.PERCENT_RE
+        _re_percent_encoding: Pattern = urllib3.util.url.PERCENT_RE  # type: ignore[attr-defined]
 
         @classmethod
         def _num_percent_encodings(cls, string) -> int:
@@ -84,7 +84,7 @@ if urllib3_version >= (1, 25, 4):
 
             return _List()
 
-    urllib3.util.url.PERCENT_RE = Urllib3UtilUrlPercentReOverride
+    urllib3.util.url.PERCENT_RE = Urllib3UtilUrlPercentReOverride  # type: ignore[attr-defined]
 
 
 def _parse_keyvalue_list(val):
@@ -101,6 +101,8 @@ _VALID_REQUEST_ARGS = "method", "url", "headers", "files", "data", "params", "au
 
 
 class HTTPSession(Session):
+    params: Dict
+
     def __init__(self):
         super().__init__()
 

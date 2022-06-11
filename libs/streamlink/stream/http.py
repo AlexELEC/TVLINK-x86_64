@@ -68,10 +68,9 @@ class HTTPStream(Stream):
             **reqargs,
         )
 
+        self.fd = StreamIOIterWrapper(res.iter_content(chunk_size))
         if self.buffered:
-            self.fd = StreamIOThreadWrapper(self.session, fd, timeout=timeout, chunk_size=chunk_size)
-        else:
-            self.fd = StreamIOIterWrapper(res.iter_content(chunk_size))
+            self.fd = StreamIOThreadWrapper(self.session, self.fd, timeout=timeout, chunk_size=chunk_size)
 
         return self.fd
 
