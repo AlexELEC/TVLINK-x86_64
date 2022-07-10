@@ -37,7 +37,20 @@ class CompatThreadPoolExecutor(ThreadPoolExecutor):
                     t.join()
 
 
-class SegmentedStreamWorker(Thread):
+class AwaitableMixin:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._wait = Event()
+
+    def wait(self, time: float) -> bool:
+        """
+        Pause the thread for a specified time.
+        Return False if interrupted by another thread and True if the time runs out normally.
+        """
+        return not self._wait.wait(time)
+
+
+class SegmentedStreamWorker(AwaitableMixin, Thread):
     """The general worker thread.
 
     This thread is responsible for queueing up segments in the
@@ -45,15 +58,12 @@ class SegmentedStreamWorker(Thread):
     """
 
     def __init__(self, reader, **kwargs):
+        super().__init__(daemon=True, name=f"Thread-{self.__class__.__name__}")
         self.closed = False
         self.reader = reader
         self.writer = reader.writer
         self.stream = reader.stream
         self.session = reader.session
-
-        self._wait = Event()
-
-        super().__init__(daemon=True, name=f"Thread-{self.__class__.__name__}")
 
     def close(self):
         """Shuts down the thread."""
@@ -64,14 +74,6 @@ class SegmentedStreamWorker(Thread):
 
         self.closed = True
         self._wait.set()
-
-    def wait(self, time):
-        """Pauses the thread for a specified time.
-
-        Returns False if interrupted by another thread and True if the
-        time runs out normally.
-        """
-        return not self._wait.wait(time)
 
     def iter_segments(self):
         """The iterator that generates segments for the worker thread.
@@ -92,7 +94,7 @@ class SegmentedStreamWorker(Thread):
         self.close()
 
 
-class SegmentedStreamWriter(Thread):
+class SegmentedStreamWriter(AwaitableMixin, Thread):
     """The writer thread.
 
     This thread is responsible for fetching segments, processing them
@@ -100,6 +102,7 @@ class SegmentedStreamWriter(Thread):
     """
 
     def __init__(self, reader, retries=None, threads=None, timeout=None):
+        super().__init__(daemon=True, name=f"Thread-{self.__class__.__name__}")
         self.closed = False
         self.reader = reader
         self.stream = reader.stream
@@ -136,8 +139,6 @@ class SegmentedStreamWriter(Thread):
                         '/405/',
                         )
 
-        super().__init__(daemon=True, name=f"Thread-{self.__class__.__name__}")
-
     def close(self):
         """Shuts down the thread, its executor and closes the reader (worker thread and buffer)."""
         if self.closed:  # pragma: no cover
@@ -148,6 +149,7 @@ class SegmentedStreamWriter(Thread):
         self.closed = True
         self.reader.close()
         self.executor.shutdown(wait=True, cancel_futures=True)
+        self._wait.set()
 
     def put(self, segment):
         """Adds a segment to the download pool and write queue."""
