@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 ))
 class StarNet(Plugin):
     _site_url = "http://starnet-md."
-    _api_url = "http://token.stb.md/api/Flussonic/stream/{0}/metadata.json"
+    _api_url = "https://token.stb.md/api/Flussonic/stream/{0}/metadata.json"
 
     def _get_streams(self):
         log.debug(f"***StarNet addon use!***")

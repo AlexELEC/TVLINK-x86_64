@@ -79,7 +79,7 @@ class Streamlink:
             "mux-subtitles": False,
             "locale": None,
             "user-input-requester": None,
-            "chunk-size": 8192
+            "chunk-size": 8192,
         })
         if options:
             self.options.update(options)
@@ -203,9 +203,8 @@ class Streamlink:
                                  default: ``system locale``.
 
         user-input-requester     (UserInputRequester) instance of UserInputRequester
-                                 to collect input from the user at runtime. Must be
-                                 set before the plugins are loaded.
-                                 default: ``UserInputRequester``.
+                                 to collect input from the user at runtime.
+                                 default: ``None``.
         ======================== =========================================
         """
 
@@ -449,7 +448,6 @@ class Streamlink:
         """
 
         success = False
-        user_input_requester = self.get_option("user-input-requester")
         for loader, name, ispkg in pkgutil.iter_modules([path]):
             # set the full plugin module name
             module_name = f"streamlink.plugins.{name}"
@@ -463,7 +461,7 @@ class Streamlink:
                 continue
             success = True
             plugin = mod.__plugin__
-            plugin.bind(self, name, user_input_requester)
+            plugin.bind(self, name)
             if plugin.module in self.plugins:
                 log.debug(f"Plugin {plugin.module} is being overridden by {mod.__file__}")
             self.plugins[plugin.module] = plugin

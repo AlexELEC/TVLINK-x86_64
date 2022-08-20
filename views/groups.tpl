@@ -30,10 +30,6 @@
         server.rename_grp_button(ids, document.getElementById(ids).value);
         location.reload(true);
     }
-    function delGroup(ids) {
-        server.del_grp_button(ids);
-        location.reload(true);
-    }
   </script>
 
   <p>&nbsp;</p>
@@ -70,7 +66,7 @@
         <!-- Delete -->
         % ids = 'dgb_' + row[0]
         <td>
-          <button class="btn" onClick="delGroup('{{ids}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
+          <button class="btn" onClick="server.del_grp_button('{{ids}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
       </tr>
       % end
@@ -98,7 +94,7 @@
         <!-- Delete -->
         % ids = 'dgb_' + row[0]
         <td>
-          <button class="btn" onClick="delGroup('{{ids}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
+          <button class="btn" onClick="server.del_grp_button('{{ids}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
       </tr>
       % end
