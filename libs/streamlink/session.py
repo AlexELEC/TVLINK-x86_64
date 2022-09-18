@@ -2,7 +2,7 @@ import logging
 import pkgutil
 from functools import lru_cache
 from socket import AF_INET, AF_INET6
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any, Dict, Iterator, Optional, Tuple, Type
 
 # noinspection PyPackageRequirements
 import urllib3.util.connection as urllib3_util_connection
@@ -26,6 +26,18 @@ log = logging.getLogger(__name__)
 
 # noinspection PyUnresolvedReferences
 _original_allowed_gai_family = urllib3_util_connection.allowed_gai_family  # type: ignore[attr-defined]
+
+# options which support `key1=value1;key2=value2;...` strings as value
+_OPTIONS_HTTP_KEYEQUALSVALUE = {"http-cookies": "cookies", "http-headers": "headers", "http-query-params": "params"}
+
+
+def _parse_keyvalue_string(value: str) -> Iterator[Tuple[str, str]]:
+    for keyval in value.split(";"):
+        try:
+            key, val = keyval.split("=", 1)
+            yield key.strip(), val.strip()
+        except ValueError:
+            continue
 
 
 class PythonDeprecatedWarning(UserWarning):
@@ -236,25 +248,12 @@ class Streamlink:
             self.http.proxies["http"] = update_scheme("https://", value, force=False)
             self.http.proxies["https"] = self.http.proxies["http"]
             if key == "https-proxy":
-                log.info("The https-proxy option has been deprecated in favour of a single http-proxy option")
+                log.warning("The https-proxy option has been deprecated in favor of a single http-proxy option")
 
-        elif key == "http-cookies":
-            if isinstance(value, dict):
-                self.http.cookies.update(value)
-            else:
-                self.http.parse_cookies(value)
-
-        elif key == "http-headers":
-            if isinstance(value, dict):
-                self.http.headers.update(value)
-            else:
-                self.http.parse_headers(value)
-
-        elif key == "http-query-params":
-            if isinstance(value, dict):
-                self.http.params.update(value)
-            else:
-                self.http.parse_query_params(value)
+        elif key in _OPTIONS_HTTP_KEYEQUALSVALUE:
+            getattr(self.http, _OPTIONS_HTTP_KEYEQUALSVALUE[key]).update(
+                value if isinstance(value, dict) else dict(_parse_keyvalue_string(value))
+            )
 
         elif key == "http-trust-env":
             self.http.trust_env = value
@@ -263,11 +262,12 @@ class Streamlink:
             self.http.verify = value
 
         elif key == "http-disable-dh":
-            default_ciphers = list(
+            default_ciphers = [
                 item
                 for item in urllib3_util_ssl.DEFAULT_CIPHERS.split(":")  # type: ignore[attr-defined]
                 if item != "!DH"
-            )
+            ]
+
             if value:
                 default_ciphers.append("!DH")
             urllib3_util_ssl.DEFAULT_CIPHERS = ":".join(default_ciphers)  # type: ignore[attr-defined]
@@ -351,8 +351,8 @@ class Streamlink:
     def resolve_url(
         self,
         url: str,
-        follow_redirect: bool = True
-    ) -> Tuple[Type[Plugin], str]:
+        follow_redirect: bool = True,
+    ) -> Tuple[str, Type[Plugin], str]:
         """
         Attempts to find a plugin that can use this URL.
 
@@ -368,24 +368,24 @@ class Streamlink:
         url = update_scheme("https://", url, force=False)
 
         matcher: Matcher
-        candidate: Optional[Type[Plugin]] = None
+        candidate: Optional[Tuple[str, Type[Plugin]]] = None
         priority = NO_PRIORITY
         for name, plugin in self.plugins.items():
             if plugin.matchers:
                 for matcher in plugin.matchers:
                     if matcher.priority > priority and matcher.pattern.match(url) is not None:
-                        candidate = plugin
+                        candidate = name, plugin
                         priority = matcher.priority
             # TODO: remove deprecated plugin resolver
             elif hasattr(plugin, "can_handle_url") and callable(plugin.can_handle_url) and plugin.can_handle_url(url):
                 prio = plugin.priority(url) if hasattr(plugin, "priority") and callable(plugin.priority) else NORMAL_PRIORITY
                 if prio > priority:
-                    log.info(f"Resolved plugin {name} with deprecated can_handle_url API")
-                    candidate = plugin
+                    log.warning(f"Resolved plugin {name} with deprecated can_handle_url API")
+                    candidate = name, plugin
                     priority = prio
 
         if candidate:
-            return candidate, url
+            return candidate[0], candidate[1], url
 
         if follow_redirect:
             # Attempt to handle a redirect URL
@@ -404,7 +404,7 @@ class Streamlink:
 
         raise NoPluginError
 
-    def resolve_url_no_redirect(self, url: str) -> Tuple[Type[Plugin], str]:
+    def resolve_url_no_redirect(self, url: str) -> Tuple[str, Type[Plugin], str]:
         """
         Attempts to find a plugin that can use this URL.
 
@@ -426,8 +426,8 @@ class Streamlink:
         :return: A :class:`dict` of stream names and :class:`streamlink.stream.Stream` instances
         """
 
-        pluginclass, resolved_url = self.resolve_url(url)
-        plugin = pluginclass(resolved_url)
+        pluginname, pluginclass, resolved_url = self.resolve_url(url)
+        plugin = pluginclass(self, resolved_url)
 
         return plugin.streams(**params)
 
@@ -450,6 +450,7 @@ class Streamlink:
         success = False
         for loader, name, ispkg in pkgutil.iter_modules([path]):
             # set the full plugin module name
+            # use the "streamlink.plugins." prefix even for sideloaded plugins
             module_name = f"streamlink.plugins.{name}"
             try:
                 mod = load_module(module_name, path)
@@ -461,10 +462,9 @@ class Streamlink:
                 continue
             success = True
             plugin = mod.__plugin__
-            plugin.bind(self, name)
-            if plugin.module in self.plugins:
-                log.debug(f"Plugin {plugin.module} is being overridden by {mod.__file__}")
-            self.plugins[plugin.module] = plugin
+            if name in self.plugins:
+                log.debug(f"Plugin {name} is being overridden by {mod.__file__}")
+            self.plugins[name] = plugin
 
         return success
 

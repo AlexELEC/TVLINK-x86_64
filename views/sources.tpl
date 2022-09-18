@@ -73,8 +73,9 @@
     <tr>
       <th width="4%" >Name</th>
       <th width="2%" >Catchup</th>
-      <th width="2%" >Enable</th> 
+      <th width="1%" >Enable</th> 
       <th width="2%" >Prio</th>
+      <th width="2%" >Limit</th>
       <th width="2%" >Add channels</th>
       <th width="2%" >New channels</th>
       <th width="2%" >Update period</th>
@@ -82,14 +83,15 @@
       <th width="1%" >Links</th>
     </tr>
 
-    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh ] -->
+    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm ] -->
     % for row in in_srcs:
     % if row[2] == 'Playlists':
     <tr>
       <!-- Name -->
       % ids = 'hrf_' + row[0]
+      % shortName = row[0].replace("m3u_", "")
         <td>
-          <a id={{ids}} {{'href=/inputs/'+row[0] if row[1] == 1 and row[8] > 0 else ""}} >{{row[0]}}</a>
+          <a id={{ids}} {{'href=/inputs/'+row[0] if row[1] == 1 and row[8] > 0 else ""}} >{{shortName}}</a>
           <button class="btn" onClick="server.show_m3u_info('{{row[0]}}')" ><i class="fa fa-info-circle" style="font-size:26px;color:blue" ></i></button>
           <button class="btn" onClick="delSource('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
@@ -114,6 +116,11 @@
           <option {{'selected' if prio == row[3] else ""}} >{{prio}}</option>
         % end
         </select>
+      </td>
+      <!-- Max streams Limit -->
+      % ids = 'mst_' + row[0]
+      <td>
+        <input id={{ids}} type="number" step="1" min="0" max="10" class="form-control" value="{{row[11]}}" onchange="server.change_select('{{ids}}')" >
       </td>
       <!-- Add channels -->
       <td><label class="switch">
@@ -195,7 +202,7 @@
       <th width="3%" >Links</th>
     </tr>
 
-    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh ] -->
+    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm ] -->
     % for row in in_srcs:
     % if row[2] == 'Addons':
     <tr>

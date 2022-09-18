@@ -40,7 +40,7 @@ class _HTTPResponse(urllib3.response.HTTPResponse):
         #
         # Fix this by overriding urllib3.response.HTTPResponse's constructor and always setting enforce_content_length to True,
         # as there is no way to make requests set this parameter on its own.
-        kwargs.update({"enforce_content_length": True})
+        kwargs["enforce_content_length"] = True
         super().__init__(*args, **kwargs)
 
 
@@ -85,15 +85,6 @@ if urllib3_version >= (1, 25, 4):
             return _List()
 
     urllib3.util.url.PERCENT_RE = Urllib3UtilUrlPercentReOverride  # type: ignore[attr-defined]
-
-
-def _parse_keyvalue_list(val):
-    for keyvalue in val.split(";"):
-        try:
-            key, value = keyvalue.split("=", 1)
-            yield key.strip(), value.strip()
-        except ValueError:
-            continue
 
 
 # requests.Request.__init__ keywords, except for "hooks"
@@ -145,30 +136,6 @@ class HTTPSession(Session):
     def xml(cls, res, *args, **kwargs):
         """Parses XML from a response."""
         return parse_xml(res.text, *args, **kwargs)
-
-    def parse_cookies(self, cookies, **kwargs):
-        """Parses a semi-colon delimited list of cookies.
-
-        Example: foo=bar;baz=qux
-        """
-        for name, value in _parse_keyvalue_list(cookies):
-            self.cookies.set(name, value, **kwargs)
-
-    def parse_headers(self, headers):
-        """Parses a semi-colon delimited list of headers.
-
-        Example: foo=bar;baz=qux
-        """
-        for name, value in _parse_keyvalue_list(headers):
-            self.headers[name] = value
-
-    def parse_query_params(self, cookies, **kwargs):
-        """Parses a semi-colon delimited list of query parameters.
-
-        Example: foo=bar;baz=qux
-        """
-        for name, value in _parse_keyvalue_list(cookies):
-            self.params[name] = value
 
     def resolve_url(self, url):
         """Resolves any redirects and returns the final URL."""

@@ -23,7 +23,7 @@ INSERT INTO input_groups (grpName, enabled) VALUES ('Playlists', 0);
 
 -- Table: input_sources
 DROP TABLE IF EXISTS input_sources;
-CREATE TABLE input_sources (srcName BLOB UNIQUE, enabled BOOLEAN DEFAULT (0), grpName BLOB, prio INT DEFAULT (10) NOT NULL, catchUp BLOB, addCh BOOLEAN DEFAULT (0), updPeriod INT DEFAULT (8) NOT NULL, updDate BLOB, links INT DEFAULT (0) NOT NULL, srcUrl BLOB, newCh BOOLEAN DEFAULT (0));
+CREATE TABLE input_sources (srcName BLOB UNIQUE, enabled BOOLEAN DEFAULT (0), grpName BLOB, prio INT DEFAULT (10) NOT NULL, catchUp BLOB, addCh BOOLEAN DEFAULT (0), updPeriod INT DEFAULT (8) NOT NULL, updDate BLOB, links INT DEFAULT (0) NOT NULL, srcUrl BLOB, newCh BOOLEAN DEFAULT (0), maxStrm INT DEFAULT (0) NOT NULL);
 
 -- Table: live_links
 DROP TABLE IF EXISTS live_links;

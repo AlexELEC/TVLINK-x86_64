@@ -1,4 +1,3 @@
-import time
 import logging
 import queue
 from concurrent import futures
@@ -8,7 +7,7 @@ from threading import Event, Thread, current_thread
 from typing import Any, Optional
 
 from streamlink.buffers import RingBuffer
-from streamlink.stream.stream import StreamIO
+from streamlink.stream.stream import Stream, StreamIO
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +56,11 @@ class SegmentedStreamWorker(AwaitableMixin, Thread):
     writer thread.
     """
 
-    def __init__(self, reader, **kwargs):
+    reader: "SegmentedStreamReader"
+    writer: "SegmentedStreamWriter"
+    stream: "Stream"
+
+    def __init__(self, reader: "SegmentedStreamReader", **kwargs):
         super().__init__(daemon=True, name=f"Thread-{self.__class__.__name__}")
         self.closed = False
         self.reader = reader
@@ -101,7 +104,10 @@ class SegmentedStreamWriter(AwaitableMixin, Thread):
     and finally writing the data to the buffer.
     """
 
-    def __init__(self, reader, retries=None, threads=None, timeout=None):
+    reader: "SegmentedStreamReader"
+    stream: "Stream"
+
+    def __init__(self, reader: "SegmentedStreamReader", retries=None, threads=None, timeout=None):
         super().__init__(daemon=True, name=f"Thread-{self.__class__.__name__}")
         self.closed = False
         self.reader = reader
@@ -123,7 +129,7 @@ class SegmentedStreamWriter(AwaitableMixin, Thread):
         self.timeout = timeout
         self.threads = threads
         self.executor = CompatThreadPoolExecutor(max_workers=self.threads)
-        self.futures = queue.Queue(size)
+        self.futures: queue.Queue[Future] = queue.Queue(size)
 
         self.BAN_LIST = (
                         'vod/ban',
@@ -241,10 +247,14 @@ class SegmentedStreamReader(StreamIO):
     __worker__ = SegmentedStreamWorker
     __writer__ = SegmentedStreamWriter
 
-    def __init__(self, stream, timeout=None):
+    worker: "SegmentedStreamWorker"
+    writer: "SegmentedStreamWriter"
+    stream: "Stream"
+
+    def __init__(self, stream: "Stream", timeout=None):
         super().__init__()
-        self.session = stream.session
         self.stream = stream
+        self.session = stream.session
         self.timeout = timeout or self.session.options.get("stream-timeout")
 
         buffer_size = self.session.get_option("ringbuffer-size")

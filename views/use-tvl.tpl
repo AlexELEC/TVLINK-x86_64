@@ -7,21 +7,21 @@
   <table class="table" width="100%" border="2" >
 
     <tr>
-      <th width="5%"  >Client</th>
-      <th width="5%"  >Channel</th>
-      <th width="2%"  >ID</th>
+      <th width="3%"  >Client</th>
+      <th width="4%"  >Channel</th>
+      <th width="3%"  >Source</th>
       <th width="5%"  >Start Time</th>
       <th width="12%" >URL</th>
 
     </tr>
 
-    <!-- STATUS_STREAMS {user_ip: [chID, chTitle, lnk, startTime]} -->
+    <!-- STATUS_STREAMS {user_ip: [chID, srcName, chTitle, lnk, startTime, orgURL]} -->
     % for client in STATUS_STREAMS.keys():
-    % client_val = STATUS_STREAMS.get(client)
-    % chID = client_val[0]
-    % chTitle = client_val[1]
-    % cnLink = client_val[2]
-    % cnStart = client_val[3]
+    % chID, chSource, chTitle, chLink, chStart, chOrgUrl = STATUS_STREAMS.get(client)
+    % chSource = chSource.replace("m3u_", "")
+    % if "?" in chOrgUrl:
+    % chOrgUrl = chOrgUrl.split('?')[0]
+    % end
     <tr>
       <!-- Client -->
       <td>
@@ -29,19 +29,19 @@
       </td>
       <!-- Channel -->
       <td>
-        <label>{{chTitle}}</label>
+        <label>{{chTitle}} [{{chID}}]</label>
       </td>
-      <!-- ID -->
+      <!-- Source -->
       <td>
-        <label>{{chID}}</label>
+        <label>{{chSource}}</label>
       </td>
       <!-- Start Time -->
       <td>
-        <label>{{cnStart}}</label>
+        <label>{{chStart}}</label>
       </td>
       <!-- URL -->
       <td>
-        <label>{{cnLink}}</label>
+        <label>{{chOrgUrl}}</label>
       </td>
     </tr>
     % end

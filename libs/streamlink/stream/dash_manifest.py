@@ -69,18 +69,17 @@ class MPDParsers:
         res = ""
         for m in re.compile(r"(.*?)\$(\w+)(?:%([\w.]+))?\$").finditer(url_template):
             _, end = m.span()
-            res += "{0}{{{1}{2}}}".format(m.group(1),
-                                          m.group(2),
-                                          (":" + m.group(3)) if m.group(3) else "")
+            res += "{0}{{{1}{2}}}".format(m.group(1), m.group(2), f":{m.group(3)}" if m.group(3) else "")
+
         return (res + url_template[end:]).format
 
     @staticmethod
     def frame_rate(frame_rate):
-        if "/" in frame_rate:
-            a, b = frame_rate.split("/")
-            return float(a) / float(b)
-        else:
+        if "/" not in frame_rate:
             return float(frame_rate)
+
+        a, b = frame_rate.split("/")
+        return float(a) / float(b)
 
     @staticmethod
     def timedelta(timescale=1):
@@ -584,8 +583,7 @@ class Representation(MPDNode):
                     yield segment
         elif segmentLists:
             for segmentList in segmentLists:
-                for segment in segmentList.segments:
-                    yield segment
+                yield from segmentList.segments
         else:
             yield Segment(self.base_url, 0, True, True)
 

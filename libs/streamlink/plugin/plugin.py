@@ -1,10 +1,26 @@
 import ast
+import inspect
 import logging
 import operator
 import re
 import time
 from functools import partial
-from typing import Any, Callable, ClassVar, Dict, List, Match, NamedTuple, Optional, Pattern, Sequence, Type, Union
+from http.cookiejar import Cookie
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    Match,
+    NamedTuple,
+    Optional,
+    Pattern,
+    Sequence,
+    TYPE_CHECKING,
+    Type,
+    Union,
+)
 
 import requests.cookies
 
@@ -12,6 +28,9 @@ from streamlink.cache import Cache
 from streamlink.exceptions import FatalPluginError, NoStreamsError, PluginError
 from streamlink.options import Argument, Arguments, Options
 from streamlink.user_input import UserInputRequester
+
+if TYPE_CHECKING:  # pragma: no cover
+    from streamlink.session import Streamlink
 
 
 log = logging.getLogger(__name__)
@@ -51,6 +70,9 @@ HIGH_PRIORITY = 30
 NORMAL_PRIORITY = 20
 LOW_PRIORITY = 10
 NO_PRIORITY = 0
+
+_COOKIE_KEYS = \
+    "version", "name", "value", "port", "domain", "path", "secure", "expires", "discard", "comment", "comment_url", "rfc2109"
 
 
 def stream_weight(stream):
@@ -160,6 +182,16 @@ class Matcher(NamedTuple):
     priority: int
 
 
+# Add front- and back-wrappers to the deprecated plugin's method resolution order (see Plugin.__new__)
+class PluginWrapperMeta(type):
+    def mro(cls):
+        # cls.__base__ is the PluginWrapperFront which is based on the deprecated plugin class
+        mro = list(cls.__base__.__mro__)
+        # cls is the PluginWrapperBack and needs to be inserted after the deprecated plugin class
+        mro.insert(2, cls)
+        return mro
+
+
 class Plugin:
     """
     Plugin base class for retrieving streams and metadata from the URL specified.
@@ -168,7 +200,15 @@ class Plugin:
     matchers: ClassVar[Optional[List[Matcher]]] = None
     """
     The list of plugin matchers (URL pattern + priority).
-    Use the :meth:`streamlink.plugin.pluginmatcher` decorator for initializing this list.
+
+    Use the :func:`pluginmatcher` decorator to initialize this list.
+    """
+
+    arguments: ClassVar[Optional[Arguments]] = None
+    """
+    The plugin's :class:`Arguments <streamlink.options.Arguments>` collection.
+
+    Use the :func:`pluginargument` decorator to initialize this collection.
     """
 
     matches: Sequence[Optional[Match]]
@@ -190,29 +230,70 @@ class Plugin:
     category: Optional[str] = None
     """Metadata 'category' attribute: name of a game being played, a music genre, etc."""
 
-    cache = None
-    logger = None
-    module = "unknown"
     options = Options()
-    arguments: Optional[Arguments] = None
-    session = None
-    _url: Optional[str] = None
+    _url: str = ""
 
     # deprecated
     can_handle_url: Callable[[str], bool]
     # deprecated
     priority: Callable[[str], int]
 
-    @classmethod
-    def bind(cls, session, module):
-        cls.cache = Cache(filename="plugin-cache.json",
-                          key_prefix=module)
-        cls.logger = logging.getLogger("streamlink.plugins." + module)
-        cls.module = module
-        cls.session = session
+    # Handle deprecated plugin constructors which only take the url argument
+    def __new__(cls, *args, **kwargs):
+        # Ignore plugins without custom constructors or wrappers
+        if cls.__init__ is Plugin.__init__ or hasattr(cls, "_IS_DEPRECATED_PLUGIN_WRAPPER"):
+            return super().__new__(cls)
+
+        # Ignore custom constructors which have a formal "session" parameter or a variable positional parameter
+        sig = inspect.signature(cls.__init__).parameters
+        if "session" in sig or any(param.kind == inspect.Parameter.VAR_POSITIONAL for param in sig.values()):
+            return super().__new__(cls)
+
+        # Wrapper class which overrides the very first constructor in the MRO
+        # noinspection PyAbstractClass
+        class PluginWrapperFront(cls):
+            _IS_DEPRECATED_PLUGIN_WRAPPER = True
+
+            # The __module__ value needs to be copied
+            __module__ = cls.__module__
+
+            def __init__(self, session, url):
+                # Take any arguments, but only pass the URL to the custom constructor of the deprecated plugin
+                # noinspection PyArgumentList
+                super().__init__(url)
+                log.warning(f"Initialized {self.module} plugin with deprecated constructor")
+
+        # Wrapper class which comes after the deprecated plugin in the MRO
+        # noinspection PyAbstractClass
+        class PluginWrapperBack(PluginWrapperFront, metaclass=PluginWrapperMeta):
+            def __init__(self, *_, **__):
+                # Take any arguments from the super() call of the constructor of the deprecated plugin,
+                # but pass the right args and keywords to the Plugin constructor
+                super().__init__(*args, **kwargs)
+
+        return cls.__new__(PluginWrapperBack, *args, **kwargs)
+
+    def __init__(self, session: "Streamlink", url: str):
+        """
+        :param session: The Streamlink session instance
+        :param url: The input URL used for finding and resolving streams
+        """
+
+        modulename = self.__class__.__module__
+        self.module = modulename.split(".")[-1]
+        self.logger = logging.getLogger(modulename)
+        self.cache = Cache(
+            filename="plugin-cache.json",
+            key_prefix=self.module,
+        )
+
+        self.session: "Streamlink" = session
+        self.url: str = url
+
+        self.load_cookies()
 
     @property
-    def url(self) -> Optional[str]:
+    def url(self) -> str:
         """
         The plugin's input URL.
         Setting a new value will automatically update the :attr:`matches`, :attr:`matcher` and :attr:`match` data.
@@ -227,18 +308,6 @@ class Plugin:
         matches = [(pattern, pattern.match(value)) for pattern, priority in self.matchers or []]
         self.matches = tuple(m for p, m in matches)
         self.matcher, self.match = next(((p, m) for p, m in matches if m is not None), (None, None))
-
-    def __init__(self, url: str):
-        """
-        :param str url: URL that the plugin will operate on
-        """
-
-        self.url = url
-
-        try:
-            self.load_cookies()
-        except RuntimeError:
-            pass  # unbound cannot load
 
     @classmethod
     def set_option(cls, key, value):
@@ -449,8 +518,8 @@ class Plugin:
 
     def save_cookies(
         self,
-        cookie_filter: Optional[Callable] = None,
-        default_expires: int = 60 * 60 * 24 * 7
+        cookie_filter: Optional[Callable[[Cookie], bool]] = None,
+        default_expires: int = 60 * 60 * 24 * 7,
     ) -> List[str]:
         """
         Store the cookies from :attr:`session.http` in the plugin cache until they expire. The cookies can be filtered
@@ -462,31 +531,30 @@ class Plugin:
         :return: list of the saved cookie names
         """
 
-        if not self.session or not self.cache:
-            raise RuntimeError("Cannot cache cookies in unbound plugin")
-
         cookie_filter = cookie_filter or (lambda c: True)
         saved = []
 
         for cookie in filter(cookie_filter, self.session.http.cookies):
             cookie_dict = {}
-            for attr in ("version", "name", "value", "port", "domain", "path", "secure", "expires", "discard",
-                         "comment", "comment_url", "rfc2109"):
-                cookie_dict[attr] = getattr(cookie, attr, None)
+            for key in _COOKIE_KEYS:
+                cookie_dict[key] = getattr(cookie, key, None)
             cookie_dict["rest"] = getattr(cookie, "rest", getattr(cookie, "_rest", None))
 
             expires = default_expires
-            if cookie_dict['expires']:
-                expires = int(cookie_dict['expires'] - time.time())
-            key = "__cookie:{0}:{1}:{2}:{3}".format(cookie.name,
-                                                    cookie.domain,
-                                                    cookie.port_specified and cookie.port or "80",
-                                                    cookie.path_specified and cookie.path or "*")
+            if cookie_dict["expires"]:
+                expires = int(cookie_dict["expires"] - time.time())
+            key = "__cookie:{0}:{1}:{2}:{3}".format(
+                cookie.name,
+                cookie.domain,
+                cookie.port_specified and cookie.port or "80",
+                cookie.path_specified and cookie.path or "*",
+            )
             self.cache.set(key, cookie_dict, expires)
             saved.append(cookie.name)
 
-        if saved:
-            self.logger.debug("Saved cookies: {0}".format(", ".join(saved)))
+        if saved:  # pragma: no branch
+            self.logger.debug(f"Saved cookies: {', '.join(saved)}")
+
         return saved
 
     def load_cookies(self) -> List[str]:
@@ -496,9 +564,6 @@ class Plugin:
         :return: list of the restored cookie names
         """
 
-        if not self.session or not self.cache:
-            raise RuntimeError("Cannot load cached cookies in unbound plugin")
-
         restored = []
 
         for key, value in self.cache.get_all().items():
@@ -507,8 +572,9 @@ class Plugin:
                 self.session.http.cookies.set_cookie(cookie)
                 restored.append(cookie.name)
 
-        if restored:
-            self.logger.debug("Restored cookies: {0}".format(", ".join(restored)))
+        if restored:  # pragma: no branch
+            self.logger.debug(f"Restored cookies: {', '.join(restored)}")
+
         return restored
 
     def clear_cookies(self, cookie_filter: Optional[Callable] = None) -> List[str]:
@@ -520,9 +586,6 @@ class Plugin:
         :type cookie_filter: function
         :return: list of the removed cookie names
         """
-
-        if not self.session or not self.cache:
-            raise RuntimeError("Cannot clear cached cookies in unbound plugin")
 
         cookie_filter = cookie_filter or (lambda c: True)
         removed = []
@@ -538,7 +601,7 @@ class Plugin:
         return removed
 
     def input_ask(self, prompt: str) -> str:
-        user_input_requester: Optional[UserInputRequester] = self.session.get_option("user-input-requester")  # type: ignore
+        user_input_requester: Optional[UserInputRequester] = self.session.get_option("user-input-requester")
         if user_input_requester:
             try:
                 return user_input_requester.ask(prompt)
@@ -547,7 +610,7 @@ class Plugin:
         raise FatalPluginError("This plugin requires user input, however it is not supported on this platform")
 
     def input_ask_password(self, prompt: str) -> str:
-        user_input_requester: Optional[UserInputRequester] = self.session.get_option("user-input-requester")  # type: ignore
+        user_input_requester: Optional[UserInputRequester] = self.session.get_option("user-input-requester")
         if user_input_requester:
             try:
                 return user_input_requester.ask_password(prompt)
@@ -556,7 +619,42 @@ class Plugin:
         raise FatalPluginError("This plugin requires user input, however it is not supported on this platform")
 
 
-def pluginmatcher(pattern: Pattern, priority: int = NORMAL_PRIORITY) -> Callable[[Type[Plugin]], Type[Plugin]]:
+def pluginmatcher(
+    pattern: Pattern,
+    priority: int = NORMAL_PRIORITY,
+) -> Callable[[Type[Plugin]], Type[Plugin]]:
+    """
+    Decorator for plugin URL matchers.
+
+    A matcher consists of a compiled regular expression pattern for the plugin's input URL and a priority value.
+    The priority value determines which plugin gets chosen by
+    :meth:`Streamlink.resolve_url <streamlink.Streamlink.resolve_url>` if multiple plugins match the input URL.
+
+    Plugins must at least have one matcher. If multiple matchers are defined, then the first matching one
+    according to the order of which they have been defined (top to bottom) will be responsible for setting the
+    :attr:`Plugin.matcher` and :attr:`Plugin.match` attributes on the :class:`Plugin` instance.
+    The :attr:`Plugin.matchers` and :attr:`Plugin.matches` attributes are affected by all defined matchers.
+
+    .. code-block:: python
+
+        import re
+
+        from streamlink.plugin import HIGH_PRIORITY, Plugin, pluginmatcher
+
+
+        @pluginmatcher(re.compile("https?://example:1234/(?:foo|bar)/(?P<name>[^/]+)"))
+        @pluginmatcher(priority=HIGH_PRIORITY, pattern=re.compile(\"\"\"
+            https?://(?:
+                 sitenumberone
+                |adifferentsite
+                |somethingelse
+            )
+            /.+\\.m3u8
+        \"\"\", re.VERBOSE))
+        class MyPlugin(Plugin):
+            ...
+    """
+
     matcher = Matcher(pattern, priority)
 
     def decorator(cls: Type[Plugin]) -> Type[Plugin]:
@@ -581,7 +679,34 @@ def pluginargument(
     dest: Optional[str] = None,
     is_global: bool = False,
     **options,
-):
+) -> Callable[[Type[Plugin]], Type[Plugin]]:
+    """
+    Decorator for plugin arguments. Takes the same arguments as :class:`streamlink.options.Argument`.
+
+    .. code-block:: python
+
+        from streamlink.plugin import Plugin, pluginargument
+
+
+        @pluginargument(
+            "username",
+            requires=["password"],
+            metavar="EMAIL",
+            help="The username for your account.",
+        )
+        @pluginargument(
+            "password",
+            sensitive=True,
+            metavar="PASSWORD",
+            help="The password for your account.",
+        )
+        class MyPlugin(Plugin):
+            ...
+
+    This will add the ``--myplugin-username`` and ``--myplugin-password`` arguments to the CLI,
+    assuming the plugin's module name is ``myplugin``.
+    """
+
     arg = Argument(
         name,
         required=required,
