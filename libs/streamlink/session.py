@@ -83,6 +83,7 @@ class Streamlink:
             "segments-queue": 5,
             "stream-timeout": 60.0,
             "ffmpeg-ffmpeg": None,
+            "ffmpeg-no-validation": False,
             "ffmpeg-fout": None,
             "ffmpeg-video-transcode": None,
             "ffmpeg-audio-transcode": None,
@@ -170,6 +171,9 @@ class Streamlink:
         ffmpeg-ffmpeg            (str) Specify the location of the
                                  ffmpeg executable use by Muxing streams
                                  e.g. ``/usr/local/bin/ffmpeg``
+
+        ffmpeg-no-validation     (bool) Disable FFmpeg validation and version logging.
+                                 default: ``False``
 
         ffmpeg-verbose           (bool) Log stderr from ffmpeg to the
                                  console
