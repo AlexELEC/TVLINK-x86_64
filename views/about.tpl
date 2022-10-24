@@ -32,6 +32,16 @@
           <a href="http://{{HOST}}/playlist">http://{{HOST}}/playlist</a>
         </td>
       </tr>
+      % if FFMPEG:
+      <tr>
+        <td>
+          M3U FFmpeg Playlist
+        </td>
+        <td>
+          <a href="http://{{HOST}}/ffmpeglist">http://{{HOST}}/ffmpeglist</a>
+        </td>
+      </tr>
+      % end
       <tr>
         <td>
           XMLTV EPG

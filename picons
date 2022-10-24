@@ -14,9 +14,10 @@ main_url = "https://epg.it999.ru/"
 
 def title_to_crc32(name):
     from zlib import crc32
-    name = name.replace('°', '').replace('(','').replace(')','').replace('*','').replace('.','').replace('&','')
-    name = ''.join(name.split())
     name = name.upper()
+    name = name.replace('°', '').replace('(','').replace(')','').replace('*','').replace('.','').replace('&','').replace('-','').replace('/','').replace('\\','')
+    name = name.strip()
+    name = ''.join(name.split())
     name = crc32(name.encode('utf-8')) & 0xFFFFFFFF
     return str("%08X" % name)
 
@@ -66,7 +67,7 @@ for org_file in os.listdir(uzip_patch):
             crc_name = title_to_crc32(org_name) + ".png"
             file_dest = os.path.join(logo_dir, crc_name)
         shutil.move(file_source, file_dest)
-        #print ("{} => {}".format(org_file, crc_name) )
+        #print (f"{org_file} => {crc_name}")
 
 if os.path.isdir(logo_tmp): shutil.rmtree(logo_tmp, ignore_errors=True)
 if os.path.isfile(zip_path): os.remove(zip_path)

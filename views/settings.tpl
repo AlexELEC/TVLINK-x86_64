@@ -493,6 +493,61 @@
     <input id="src_proxy" size="47%" class="form-control" type="text" value="{{proxy_url}}" onchange="server.set_proxy()"></input>
   </form>
 
+  <!-- FFmpeg -->
+  % if system_ffmpeg:
+  <p>&nbsp;</p>
+  <table width="100%">
+    <tr>
+      <td width="20%"><h4><b>FFmpeg transcode stream:</b></h4></td>
+      <td><label class="switch">
+        <input id="enable_ffmpeg" type="checkbox" onClick="server.set_enable_ffmpeg()" {{'checked="checked"' if ffmpeg_enable == 'true' else ""}} >
+        <span class="slider round"></span> </label>
+      </td>
+    </tr>
+  </table>
+  % end
+
+  % if system_ffmpeg and ffmpeg_enable == 'true':
+  <p>&nbsp;</p>
+  <table class="table" width="100%" border="2" >
+
+    <tr>
+      <th width="3%" >Option</th>
+      <th width="10%" >Value</th>
+    </tr>
+
+    <!-- hwaccel -->
+    <tr>
+      <td >
+        <label class="form-control">Before input</label>
+      </td>
+      <td>
+        <input id="ffmpeg_hwaccel" class="form-control" type="text" value="{{ffmpeg_hwaccel}}" onchange="server.setting_options('ffmpeg_hwaccel')" >
+      </td>
+    </tr>
+    <!-- video encoder -->
+    <tr>
+      <td >
+        <label class="form-control">Video encoder</label>
+      </td>
+      <td>
+        <input id="ffmpeg_video" class="form-control" type="text" value="{{ffmpeg_video}}" onchange="server.setting_options('ffmpeg_video')" >
+      </td>
+    </tr>
+    <!-- audio encoder -->
+    <tr>
+      <td >
+        <label class="form-control">Audio encoder</label>
+      </td>
+      <td>
+        <input id="ffmpeg_audio" class="form-control" type="text" value="{{ffmpeg_audio}}" onchange="server.setting_options('ffmpeg_audio')" >
+      </td>
+    </tr>
+
+  </table>
+  % end
+
+  <!-- EPG -->
   <p>&nbsp;</p>
   <h4><b>EPG settings:</b></h4>
   <p>&nbsp;</p>
