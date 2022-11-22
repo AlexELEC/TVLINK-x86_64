@@ -2,7 +2,6 @@ import logging
 import re
 import struct
 from concurrent.futures import Future
-from threading import Event
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from urllib.parse import urlparse
 
@@ -13,8 +12,10 @@ from Crypto.Util.Padding import unpad
 from requests import Response
 from requests.exceptions import ChunkedEncodingError, ConnectionError, ContentDecodingError
 
+from streamlink.buffers import RingBuffer
 from streamlink.exceptions import StreamError
 from streamlink.stream.ffmpegmux import FFMPEGMuxer, MuxedStream
+from streamlink.stream.filtered import FilteredStream
 from streamlink.stream.hls_playlist import ByteRange, Key, M3U8, Map, Media, Segment, load as load_hls_playlist
 from streamlink.stream.http import HTTPStream
 from streamlink.stream.segmented import SegmentedStreamReader, SegmentedStreamWorker, SegmentedStreamWriter
@@ -63,19 +64,19 @@ class HLSStreamWriter(SegmentedStreamWriter):
     reader: "HLSStreamReader"
     stream: "HLSStream"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         options = self.session.options
 
         self.byterange: ByteRangeOffset = ByteRangeOffset()
         self.map_cache: LRUCache[str, Future] = LRUCache(self.threads)
-        self.key_data = None
-        self.key_uri = None
+        self.key_data: Union[bytes, bytearray, memoryview] = b""
+        self.key_uri: Optional[str] = None
         self.key_uri_override = options.get("hls-segment-key-uri")
         self.stream_data = options.get("hls-segment-stream-data")
         self.chunk_size = options.get("chunk-size")
 
-        self.ignore_names = None
+        self.ignore_names: Optional[re.Pattern] = None
         ignore_names = {*options.get("hls-segment-ignore-names")}
         if ignore_names:
             segments = "|".join(map(re.escape, ignore_names))
@@ -197,27 +198,30 @@ class HLSStreamWriter(SegmentedStreamWriter):
         )
 
     def should_filter_sequence(self, sequence: Sequence) -> bool:
-        return self.ignore_names and self.ignore_names.search(sequence.segment.uri) is not None
+        return self.ignore_names is not None and self.ignore_names.search(sequence.segment.uri) is not None
 
     def write(self, sequence: Sequence, result: Response, *data):
         if not self.should_filter_sequence(sequence):
+            log.debug(f"Writing segment {sequence.num} to output")
             try:
                 return self._write(sequence, result, *data)
             finally:
                 # unblock reader thread after writing data to the buffer
-                if not self.reader.filter_event.is_set():
+                if self.reader.is_paused():
                     log.info("Resuming stream output")
-                    self.reader.filter_event.set()
+                    self.reader.resume()
 
         else:
+            log.debug(f"Discarding segment {sequence.num}")
+
             # Read and discard any remaining HTTP response data in the response connection.
             # Unread data in the HTTPResponse connection blocks the connection from being released back to the pool.
             result.raw.drain_conn()
 
             # block reader thread if filtering out segments
-            if self.reader.filter_event.is_set():
+            if not self.reader.is_paused():
                 log.info("Filtering out segments and pausing stream output")
-                self.reader.filter_event.clear()
+                self.reader.pause()
 
     def _write(self, sequence: Sequence, result: Response, is_map: bool):
         if sequence.segment.key and sequence.segment.key.method != "NONE":
@@ -263,7 +267,7 @@ class HLSStreamWorker(SegmentedStreamWorker):
     writer: "HLSStreamWriter"
     stream: "HLSStream"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.playlist_changed = False
@@ -439,13 +443,14 @@ class HLSStreamWorker(SegmentedStreamWorker):
                     return
 
 
-class HLSStreamReader(SegmentedStreamReader):
+class HLSStreamReader(FilteredStream, SegmentedStreamReader):
     __worker__ = HLSStreamWorker
     __writer__ = HLSStreamWriter
 
     worker: "HLSStreamWorker"
     writer: "HLSStreamWriter"
     stream: "HLSStream"
+    buffer: RingBuffer
 
     def __init__(self, stream: "HLSStream"):
         self.request_params = dict(stream.args)
@@ -455,29 +460,7 @@ class HLSStreamReader(SegmentedStreamReader):
         self.request_params.pop("timeout", None)
         self.request_params.pop("url", None)
 
-        self.filter_event = Event()
-        self.filter_event.set()
-
         super().__init__(stream)
-
-    def read(self, size):
-        while True:
-            try:
-                return super().read(size)
-            except OSError:
-                # wait indefinitely until filtering ends
-                self.filter_event.wait()
-                if self.buffer.closed:
-                    return b""
-                # if data is available, try reading again
-                if self.buffer.length > 0:
-                    continue
-                # raise if not filtering and no data available
-                raise
-
-    def close(self):
-        super().close()
-        self.filter_event.set()
 
 
 class MuxedHLSStream(MuxedStream):

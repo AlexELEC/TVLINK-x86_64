@@ -177,7 +177,7 @@ class FFMPEGMuxer(StreamIO):
         copyts = session.options.get("ffmpeg-copyts")
         start_at_zero = session.options.get("ffmpeg-start-at-zero") or options.pop("start_at_zero", False)
 
-        self._cmd = [self.command(session), '-nostats', '-y']
+        self._cmd = [self.command(session), '-hide_banner', '-nostats', '-y', '-err_detect', 'ignore_err', '-stream_loop', '-1']
         for np in self.pipes:
             self._cmd.extend(["-i", str(np.path)])
 
@@ -256,7 +256,7 @@ class FFmpegVersionOutput(ProcessOutput):
     # https://github.com/FFmpeg/FFmpeg/commit/89b503b55f2b2713f1c3cc8981102c1a7b663281
     _re_version = re.compile(r"ffmpeg version (?P<version>\S+)")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.version: Optional[str] = None
         self.output: List[str] = []

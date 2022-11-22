@@ -6,6 +6,7 @@
 <body>
   % include('navbar-top.tpl')
   % include('alert.tpl')
+  % include('edit-epg.tpl')
   <p>&nbsp;</p>
 
   <script>
@@ -309,7 +310,10 @@
     <tr>
       <!-- Name -->
       % ids = 'hrf_' + row[0]
-      <td><a id={{ids}} {{'href=/epginputs/'+row[0] if row[1] == 1 and row[8] > 0 else ""}} >{{row[0]}}</a></td>
+      <td>
+        <a id={{ids}} {{'href=/epginputs/'+row[0] if row[1] == 1 and row[8] > 0 else ""}} >{{row[0]}}</a>
+        <button class="btn" onClick="server.show_edit_epg_url('{{row[0]}}')" ><i class="fa fa-pencil-square-o" style="font-size:26px;color:blue" ></i></button>
+      </td>
       <!-- Enable -->
       <td><label class="switch">
         % ids = 'src_' + row[0]

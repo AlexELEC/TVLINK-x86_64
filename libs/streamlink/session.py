@@ -83,7 +83,7 @@ class Streamlink:
             "segments-queue": 5,
             "stream-timeout": 60.0,
             "ffmpeg-ffmpeg": None,
-            "ffmpeg-no-validation": False,
+            "ffmpeg-no-validation": True,
             "ffmpeg-fout": None,
             "ffmpeg-video-transcode": None,
             "ffmpeg-audio-transcode": None,
