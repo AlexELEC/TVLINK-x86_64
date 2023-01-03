@@ -7,6 +7,7 @@
   % include('navbar-top.tpl')
   % include('alert.tpl')
   % include('edit-epg.tpl')
+  % include('src-conf.tpl')
   <p>&nbsp;</p>
 
   <script>
@@ -93,7 +94,7 @@
       % shortName = row[0].replace("m3u_", "")
         <td>
           <a id={{ids}} {{'href=/inputs/'+row[0] if row[1] == 1 and row[8] > 0 else ""}} >{{shortName}}</a>
-          <button class="btn" onClick="server.show_m3u_info('{{row[0]}}')" ><i class="fa fa-info-circle" style="font-size:26px;color:blue" ></i></button>
+          <button class="btn" onClick="server.show_src_conf('{{row[0]}}')" ><i class="fa fa-wrench" style="font-size:26px;color:blue" ></i></button>
           <button class="btn" onClick="delSource('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
       <!-- Catchup -->
@@ -211,6 +212,7 @@
       % ids = 'hrf_' + row[0]
         <td>
           <a id={{ids}} {{'href=/inputs/'+row[0] if row[1] == 1 and row[8] > 0 else ""}} >{{row[0]}}</a>
+          <button class="btn" onClick="server.show_src_conf('{{row[0]}}')" ><i class="fa fa-wrench" style="font-size:26px;color:blue" ></i></button>
           <button class="btn" onClick="delAddon('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
       <!-- Enable -->
