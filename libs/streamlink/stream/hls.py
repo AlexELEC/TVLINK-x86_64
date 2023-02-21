@@ -203,11 +203,22 @@ class HLSStreamWriter(SegmentedStreamWriter):
     def write(self, sequence: Sequence, result: Response, *data):
         if not self.should_filter_sequence(sequence):
             log.debug(f"Writing segment {sequence.num} to output")
+
+            written_once = self.reader.buffer.written_once
             try:
                 return self._write(sequence, result, *data)
             finally:
+                is_paused = self.reader.is_paused()
+
+                # Depending on the filtering implementation, the segment's discontinuity attribute can be missing.
+                # Also check if the output will be resumed after data has already been written to the buffer before.
+                if sequence.segment.discontinuity or is_paused and written_once:
+                    log.warning(
+                        "Encountered a stream discontinuity. This is unsupported and will result in incoherent output data.",
+                    )
+
                 # unblock reader thread after writing data to the buffer
-                if self.reader.is_paused():
+                if is_paused:
                     log.info("Resuming stream output")
                     self.reader.resume()
 
@@ -403,12 +414,16 @@ class HLSStreamWorker(SegmentedStreamWorker):
             log.debug(f"HLS Stream Data: {self.hls_stream_data}")
             log.debug(f"HLS Segments Queue: {self.hls_segments_queue}")
             log.debug(f"HLS Live Restart: {self.hls_live_restart}")
-            log.debug(f"First Sequence: {self.playlist_sequences[0].num}; "
-                      f"Last Sequence: {self.playlist_sequences[-1].num}")
-            log.debug(f"Start offset: {self.duration_offset_start}; "
-                      f"Duration: {self.duration_limit}; "
-                      f"Start Sequence: {self.playlist_sequence}; "
-                      f"End Sequence: {self.playlist_end}")
+            log.debug("; ".join([
+                f"First Sequence: {self.playlist_sequences[0].num}",
+                f"Last Sequence: {self.playlist_sequences[-1].num}",
+            ]))
+            log.debug("; ".join([
+                f"Start offset: {self.duration_offset_start}",
+                f"Duration: {self.duration_limit}",
+                f"Start Sequence: {self.playlist_sequence}",
+                f"End Sequence: {self.playlist_end}",
+            ]))
 
         itr_count = 0
         total_duration = 0
@@ -500,7 +515,7 @@ class MuxedHLSStream(MuxedStream):
             else:
                 tracks.append(audio)
         maps.extend(f"{i}:a" for i in range(1, len(tracks)))
-        substreams = map(lambda url: HLSStream(session, url, force_restart=force_restart, **args), tracks)
+        substreams = [HLSStream(session, url, force_restart=force_restart, **args) for url in tracks]
         ffmpeg_options = ffmpeg_options or {}
 
         super().__init__(session, *substreams, format="mpegts", maps=maps, **ffmpeg_options)
@@ -629,7 +644,7 @@ class HLSStream(HTTPStream):
         """
 
         locale = session_.localization
-        audio_select = session_.options.get("hls-audio-select") or []
+        audio_select = session_.options.get("hls-audio-select")
 
         # noinspection PyArgumentList
         res = session_.http.get(url, exception=IOError, **request_params)

@@ -6,7 +6,7 @@ from datetime import datetime
 from time import time
 from urllib.parse import urljoin, urlparse
 
-from streamlink.exceptions import NoStreamsError, PluginError
+from streamlink.exceptions import PluginError
 from streamlink.plugin import Plugin, pluginmatcher
 from streamlink.plugin.api import validate
 from streamlink.stream.hls import HLSStream

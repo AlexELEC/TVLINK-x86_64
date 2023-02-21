@@ -141,6 +141,8 @@ class SegmentedStreamWriter(AwaitableMixin, Thread):
                         'video/money',
                         'errors/banned',
                         'vod/allow_all_n',
+                        'lock/banner_404',
+                        'lock/banner_dead',
                         '/404/',
                         '/405/',
                         )
