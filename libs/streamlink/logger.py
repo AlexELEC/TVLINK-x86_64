@@ -1,7 +1,6 @@
 import logging
 import sys
 import warnings
-from datetime import datetime
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARNING
 from pathlib import Path
 from sys import version_info
@@ -11,6 +10,7 @@ from typing import IO, Iterator, List, Optional, TYPE_CHECKING, Union
 from warnings import WarningMessage
 
 from streamlink.exceptions import StreamlinkWarning
+from streamlink.utils.times import fromlocaltimestamp
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -106,7 +106,7 @@ class StringFormatter(logging.Formatter):
         return self._usesTime
 
     def formatTime(self, record, datefmt=None):
-        tdt = datetime.fromtimestamp(record.created)
+        tdt = fromlocaltimestamp(record.created)
 
         return tdt.strftime(datefmt or self.default_time_format)
 
