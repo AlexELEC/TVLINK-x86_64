@@ -209,10 +209,10 @@ class SegmentedStreamWriter(AwaitableMixin, Thread):
             try:
                 segment, future, *data = self._futures_get()
                 try:
-                    #print ('\nReceived segment: {}'.format(segment.segment.uri) )
+                    #print (f'\nReceived segment: {segment.segment.uri}')
                     for ban in self.BAN_LIST:
                         if ban in segment.segment.uri:
-                            log.error("BANNED: provider blocked stream [{}]".format(segment.segment.uri) )
+                            log.error(f"BANNED: provider blocked stream [{segment.segment.uri}]")
                             print ('BANNED: provider blocked stream => ', segment.segment.uri)
                             b_Baned = True
                             break

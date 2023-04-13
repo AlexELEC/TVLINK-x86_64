@@ -139,7 +139,7 @@
       <!-- Update period -->
       % ids = 'upr_' + row[0]
       <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
-        % for prio in range(0,25):
+        % for prio in range(0,73):
           <option {{'selected' if prio == row[6] else ""}} >{{prio}}</option>
         % end
         </select>
@@ -244,7 +244,7 @@
       <!-- Update period -->
       % ids = 'upr_' + row[0]
       <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
-        % for prio in range(0,25):
+        % for prio in range(0,73):
           <option {{'selected' if prio == row[6] else ""}} >{{prio}}</option>
         % end
         </select>
