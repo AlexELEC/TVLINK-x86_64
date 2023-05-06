@@ -7,7 +7,7 @@ CREATE TABLE channels (chID BLOB, chTitle BLOB, chGroup BLOB, chLogo BLOB, chBin
 
 -- Table: groups
 DROP TABLE IF EXISTS groups;
-CREATE TABLE groups (grpID BLOB, grpTitle BLOB, enabled BOOLEAN, chBinds BLOB, grpNum BLOB);
+CREATE TABLE groups (grpID BLOB, grpTitle BLOB, enabled BOOLEAN, chBinds BLOB, grpNum BLOB, grpAlias BLOB);
 
 COMMIT TRANSACTION;
 PRAGMA foreign_keys = on;

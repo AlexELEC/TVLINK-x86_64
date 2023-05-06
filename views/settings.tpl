@@ -490,7 +490,14 @@
 
   <form class="form-inline">
     <label class="form-control"><b>Sources Proxy:</b></label>
-    <input id="src_proxy" size="47%" class="form-control" type="text" value="{{proxy_url}}" onchange="server.set_proxy()"></input>
+    <input id="src_proxy" size="50%" class="form-control" type="text" value="{{proxy_url}}" onchange="server.set_proxy()"></input>
+  </form>
+
+  <p>&nbsp;</p>
+
+  <form class="form-inline">
+    <label class="form-control"><b>Streams Proxy:</b></label>
+    <input id="str_proxy" size="50%" class="form-control" type="text" value="{{proxy_str}}" onchange="server.set_proxy_stream()"></input>
   </form>
 
   <!-- FFmpeg -->

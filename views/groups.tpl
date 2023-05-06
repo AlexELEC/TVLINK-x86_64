@@ -7,6 +7,8 @@
   % include('navbar-top.tpl')
   <p>&nbsp;</p>
 
+  % include('groups_alias.tpl')
+
   <form class="form-inline" >
     <label><b>Create new group:</b></label>
     <input id="txt_new_grp" type="text" placeholder="Enter new group" >
@@ -16,6 +18,9 @@
   </form>
 
   <script>
+    function modalClose(winID) {
+        document.getElementById(winID).style.display = "none";
+    }
     function createGroup() {
         server.create_grp_button(document.getElementById('txt_new_grp').value);
         location.reload(true);
@@ -38,7 +43,7 @@
     <tr>
       <th width="10%" >Title</th>
       <th width="2%" >Enabled</th>
-      <th width="2%" >Delete</th>
+      <th width="2%" >Control</th>
     </tr>'''
     %>
 
@@ -66,6 +71,7 @@
         <!-- Delete -->
         % ids = 'dgb_' + row[0]
         <td>
+          <button class="btn" onClick="server.show_grp_alias('{{ids}}')" ><i class="fa fa-external-link-square" style="font-size:26px;color:blue" ></i></button>
           <button class="btn" onClick="server.del_grp_button('{{ids}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
       </tr>
@@ -94,6 +100,7 @@
         <!-- Delete -->
         % ids = 'dgb_' + row[0]
         <td>
+          <button class="btn" onClick="server.show_grp_alias('{{ids}}')" ><i class="fa fa-external-link-square" style="font-size:26px;color:blue" ></i></button>
           <button class="btn" onClick="server.del_grp_button('{{ids}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
       </tr>
