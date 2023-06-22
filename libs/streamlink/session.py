@@ -6,13 +6,13 @@ from socket import AF_INET, AF_INET6
 from typing import Any, Callable, ClassVar, Dict, Iterator, Mapping, Optional, Tuple, Type
 
 import urllib3.util.connection as urllib3_util_connection
-import urllib3.util.ssl_ as urllib3_util_ssl
+from requests.adapters import HTTPAdapter
 
 from streamlink import __version__, plugins
 from streamlink.exceptions import NoPluginError, PluginError, StreamlinkDeprecationWarning
 from streamlink.logger import StreamlinkLogger
 from streamlink.options import Options
-from streamlink.plugin.api.http_session import HTTPSession
+from streamlink.plugin.api.http_session import HTTPSession, TLSNoDHAdapter
 from streamlink.plugin.plugin import Matcher, NORMAL_PRIORITY, NO_PRIORITY, Plugin
 from streamlink.utils.l10n import Localization
 from streamlink.utils import load_module
@@ -66,7 +66,7 @@ class StreamlinkOptions(Options):
             if scheme not in ("http://", "https://"):
                 continue
             if not value:
-                adapter.poolmanager.connection_pool_kw.pop("source_address")
+                adapter.poolmanager.connection_pool_kw.pop("source_address", None)
             else:
                 # https://docs.python.org/3/library/socket.html#socket.create_connection
                 adapter.poolmanager.connection_pool_kw.update(source_address=(value, 0))
@@ -98,14 +98,12 @@ class StreamlinkOptions(Options):
 
     def _set_http_disable_dh(self, key, value):
         self.set_explicit(key, value)
-        default_ciphers = [
-            item
-            for item in urllib3_util_ssl.DEFAULT_CIPHERS.split(":")  # type: ignore[attr-defined]
-            if item != "!DH"
-        ]
         if value:
-            default_ciphers.append("!DH")
-        urllib3_util_ssl.DEFAULT_CIPHERS = ":".join(default_ciphers)  # type: ignore[attr-defined]
+            adapter = TLSNoDHAdapter()
+        else:
+            adapter = HTTPAdapter()
+
+        self.session.http.mount("https://", adapter)
 
     @staticmethod
     def _factory_set_http_attr_key_equals_value(delimiter: str) -> Callable[["StreamlinkOptions", str, Any], None]:
@@ -617,8 +615,8 @@ class Streamlink:
             module_name = f"streamlink.plugins.{name}"
             try:
                 mod = load_module(module_name, path)
-            except ImportError:
-                log.exception(f"Failed to load plugin {name} from {path}\n")
+            except ImportError as err:
+                log.exception(f"Failed to load plugin {name} from {path}", exc_info=err)
                 continue
 
             if not hasattr(mod, "__plugin__") or not issubclass(mod.__plugin__, Plugin):

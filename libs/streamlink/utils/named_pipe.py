@@ -6,13 +6,16 @@ import tempfile
 import threading
 from contextlib import suppress
 from pathlib import Path
+from typing import Type
 
 from streamlink.compat import is_win32
+
 
 try:
     from ctypes import windll, cast, c_ulong, c_void_p, byref  # type: ignore[attr-defined]
 except ImportError:
     pass
+
 
 log = logging.getLogger(__name__)
 
@@ -131,4 +134,8 @@ class NamedPipeWindows(NamedPipeBase):
             self.pipe = None
 
 
-NamedPipe = NamedPipePosix if not is_win32 else NamedPipeWindows
+NamedPipe: Type[NamedPipeBase]
+if not is_win32:
+    NamedPipe = NamedPipePosix
+else:
+    NamedPipe = NamedPipeWindows
