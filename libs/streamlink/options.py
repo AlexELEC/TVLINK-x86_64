@@ -1,7 +1,4 @@
-import warnings
 from typing import Any, Callable, ClassVar, Dict, Iterator, Mapping, Optional, Sequence, Union
-
-from streamlink.exceptions import StreamlinkDeprecationWarning
 
 
 class Options:
@@ -90,7 +87,7 @@ class Options:
 
 class Argument:
     """
-    Accepts most of the parameters accepted by :meth:`ArgumentParser.add_argument`,
+    Accepts most of the parameters accepted by :meth:`ArgumentParser.add_argument()`,
     except that ``requires`` is a special case which is only enforced if the plugin is in use.
     In addition, the ``name`` parameter is the name relative to the plugin name, but can be overridden by ``argument_name``.
 
@@ -106,7 +103,6 @@ class Argument:
         sensitive: bool = False,
         argument_name: Optional[str] = None,
         dest: Optional[str] = None,
-        is_global: bool = False,
         **options
     ):
         """
@@ -117,8 +113,7 @@ class Argument:
         :param sensitive: Whether the argument is sensitive (passwords, etc.) and should be masked
         :param argument_name: Custom CLI argument name without plugin name prefix
         :param dest: Custom plugin option name
-        :param is_global: Whether this plugin argument refers to a global CLI argument (deprecated)
-        :param options: Arguments passed to :meth:`ArgumentParser.add_argument`, excluding ``requires`` and ``dest``
+        :param options: Arguments passed to :meth:`ArgumentParser.add_argument()`, excluding ``requires`` and ``dest``
         """
 
         self.required = required
@@ -132,11 +127,6 @@ class Argument:
         self.sensitive = sensitive
         self._default = options.get("default")
         self.is_global = is_global
-        if is_global:
-            warnings.warn(
-                "Defining global plugin arguments is deprecated. Use the session options instead.",
-                StreamlinkDeprecationWarning,
-            )
 
     @staticmethod
     def _normalize_name(name: str) -> str:
@@ -150,7 +140,7 @@ class Argument:
         return self._argument_name or self._normalize_name(f"{plugin}-{self.name}")
 
     def argument_name(self, plugin):
-        return f"--{self.name if self.is_global else self._name(plugin)}"
+        return f"--{self._name(plugin)}"
 
     def namespace_dest(self, plugin):
         return self._normalize_dest(self._name(plugin))
@@ -177,8 +167,7 @@ class Arguments:
 
     def __iter__(self) -> Iterator[Argument]:
         # iterate in reverse order due to add() being called by multiple pluginargument decorators in reverse order
-        # TODO: Python 3.7 removal: remove list()
-        return reversed(list(self.arguments.values()))
+        return reversed(self.arguments.values())
 
     def add(self, argument: Argument) -> None:
         self.arguments[argument.name] = argument

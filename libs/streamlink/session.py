@@ -13,7 +13,7 @@ from streamlink.exceptions import NoPluginError, PluginError, StreamlinkDeprecat
 from streamlink.logger import StreamlinkLogger
 from streamlink.options import Options
 from streamlink.plugin.api.http_session import HTTPSession, TLSNoDHAdapter
-from streamlink.plugin.plugin import Matcher, NORMAL_PRIORITY, NO_PRIORITY, Plugin
+from streamlink.plugin.plugin import NO_PRIORITY, Matcher, Plugin
 from streamlink.utils.l10n import Localization
 from streamlink.utils import load_module
 from streamlink.utils.url import update_scheme
@@ -125,7 +125,7 @@ class StreamlinkOptions(Options):
 
         return inner
 
-    # bind explicitly with dummy context, to prevent `TypeError: 'staticmethod' object is not callable` on py<310
+    # TODO: py39 support end: remove explicit dummy context binding of static method
     _factory_set_http_attr_key_equals_value = _factory_set_http_attr_key_equals_value.__get__(object)
     _factory_set_deprecated = _factory_set_deprecated.__get__(object)
 
@@ -217,6 +217,7 @@ class Streamlink:
             "hls-duration": None,
             "hls-playlist-reload-attempts": 3,
             "hls-playlist-reload-time": "default",  # default, duration, segment, average
+            "hls-segment-queue-threshold": 3,
             "hls-segment-stream-data": False,
             "hls-segment-ignore-names": [],
             "hls-segment-key-uri": None,
@@ -375,6 +376,10 @@ class Streamlink:
                 - ``segment``: duration of the last segment
                 - ``live-edge``: sum of segment durations of the ``hls-live-edge`` value minus one
                 - ``default``: the playlist's target duration
+            * - hls-segment-queue-threshold
+              - ``float``
+              - ``3``
+              - Factor of the playlist's targetduration which sets the threshold for stopping early on missing segments
             * - hls-segment-stream-data
               - ``bool``
               - ``False``
@@ -480,31 +485,6 @@ class Streamlink:
 
         return self.options.get(key)
 
-    def set_plugin_option(self, plugin: str, key: str, value: Any) -> None:
-        """
-        Sets plugin specific options used by plugins originating from this session object.
-
-        :param plugin: name of the plugin
-        :param key: key of the option
-        :param value: value to set the option to
-        """
-
-        if plugin in self.plugins:
-            plugincls = self.plugins[plugin]
-            plugincls.set_option(key, value)
-
-    def get_plugin_option(self, plugin: str, key: str) -> Optional[Any]:
-        """
-        Returns the current value of the plugin specific option.
-
-        :param plugin: name of the plugin
-        :param key: key of the option
-        """
-
-        if plugin in self.plugins:
-            plugincls = self.plugins[plugin]
-            return plugincls.get_option(key)
-
     @lru_cache(maxsize=128)
     def resolve_url(
         self,
@@ -534,16 +514,6 @@ class Streamlink:
                     if matcher.priority > priority and matcher.pattern.match(url) is not None:
                         candidate = name, plugin
                         priority = matcher.priority
-            # TODO: remove deprecated plugin resolver
-            elif hasattr(plugin, "can_handle_url") and callable(plugin.can_handle_url) and plugin.can_handle_url(url):
-                prio = plugin.priority(url) if hasattr(plugin, "priority") and callable(plugin.priority) else NORMAL_PRIORITY
-                if prio > priority:
-                    warnings.warn(
-                        f"Resolved plugin {name} with deprecated can_handle_url API",
-                        StreamlinkDeprecationWarning,
-                    )
-                    candidate = name, plugin
-                    priority = prio
 
         if candidate:
             return candidate[0], candidate[1], url
@@ -577,18 +547,19 @@ class Streamlink:
 
         return self.resolve_url(url, follow_redirect=False)
 
-    def streams(self, url: str, **params):
+    def streams(self, url: str, options: Optional[Options] = None, **params):
         """
         Attempts to find a plugin and extracts streams from the *url* if a plugin was found.
 
         :param url: a URL to match against loaded plugins
-        :param params: Additional keyword arguments passed to :meth:`streamlink.plugin.Plugin.streams`
+        :param options: Optional options instance passed to the resolved plugin
+        :param params: Additional keyword arguments passed to :meth:`Plugin.streams() <streamlink.plugin.Plugin.streams>`
         :raises NoPluginError: on plugin resolve failure
-        :return: A :class:`dict` of stream names and :class:`streamlink.stream.Stream` instances
+        :return: A :class:`dict` of stream names and :class:`Stream <streamlink.stream.Stream>` instances
         """
 
         pluginname, pluginclass, resolved_url = self.resolve_url(url)
-        plugin = pluginclass(self, resolved_url)
+        plugin = pluginclass(self, resolved_url, options)
 
         return plugin.streams(**params)
 

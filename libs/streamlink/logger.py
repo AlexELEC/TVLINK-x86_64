@@ -5,7 +5,8 @@ from logging import CRITICAL, DEBUG, ERROR, INFO, WARNING
 from pathlib import Path
 from sys import version_info
 from threading import Lock
-from typing import IO, Iterator, List, Optional, TYPE_CHECKING, Union
+from typing import IO, TYPE_CHECKING, Iterator, List, Literal, Optional, Union
+
 # noinspection PyProtectedMember
 from warnings import WarningMessage
 
@@ -33,7 +34,7 @@ class StreamlinkLogger(_BaseLoggerClass):
             yield message
 
 
-FORMAT_STYLE = "{"
+FORMAT_STYLE: Literal["%", "{", "$"] = "{"
 FORMAT_BASE = "[{name}][{levelname}] {message}"
 FORMAT_DATE = "%H:%M:%S"
 REMOVE_BASE = ["streamlink", "streamlink_cli"]
@@ -184,7 +185,7 @@ def basicConfig(
     stream: Optional[IO] = None,
     level: Optional[str] = None,
     format: str = FORMAT_BASE,
-    style: str = FORMAT_STYLE,  # TODO: py38: Literal["%", "{", "$"]
+    style: Literal["%", "{", "$"] = FORMAT_STYLE,
     datefmt: str = FORMAT_DATE,
     remove_base: Optional[List[str]] = None,
     capture_warnings: bool = False,
