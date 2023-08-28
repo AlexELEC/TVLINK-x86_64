@@ -9,6 +9,8 @@ from time import time
 from typing import Dict, Optional
 from urllib.parse import urlparse, urlunparse
 
+from requests import Response
+
 from streamlink import PluginError, StreamError
 from streamlink.stream.dash_manifest import MPD, Representation, Segment, freeze_timeline
 from streamlink.stream.ffmpegmux import FFMPEGMuxer
@@ -22,7 +24,7 @@ log = logging.getLogger(__name__)
 UTC = datetime.timezone.utc
 
 
-class DASHStreamWriter(SegmentedStreamWriter):
+class DASHStreamWriter(SegmentedStreamWriter[Segment, Response]):
     reader: "DASHStreamReader"
     stream: "DASHStream"
 
@@ -30,8 +32,8 @@ class DASHStreamWriter(SegmentedStreamWriter):
     def _get_segment_name(segment: Segment) -> str:
         return Path(urlparse(segment.url).path).resolve().name
 
-    def fetch(self, segment: Segment, retries: Optional[int] = None):
-        if self.closed or not retries:
+    def fetch(self, segment: Segment):
+        if self.closed:
             return
 
         try:
@@ -56,11 +58,11 @@ class DASHStreamWriter(SegmentedStreamWriter):
                 timeout=self.timeout,
                 exception=StreamError,
                 headers=headers,
+                retries=self.retries,
                 **request_args,
             )
         except StreamError as err:
             log.error(f"Failed to open segment {segment.url}: {err}")
-            return self.fetch(segment, retries - 1)
 
     def write(self, segment, res, chunk_size=8192):
         name = self._get_segment_name(segment)
@@ -73,7 +75,7 @@ class DASHStreamWriter(SegmentedStreamWriter):
         log.debug(f"Download of segment: {name} complete")
 
 
-class DASHStreamWorker(SegmentedStreamWorker):
+class DASHStreamWorker(SegmentedStreamWorker[Segment, Response]):
     reader: "DASHStreamReader"
     writer: "DASHStreamWriter"
     stream: "DASHStream"
@@ -160,7 +162,7 @@ class DASHStreamWorker(SegmentedStreamWorker):
         return changed
 
 
-class DASHStreamReader(SegmentedStreamReader):
+class DASHStreamReader(SegmentedStreamReader[Segment, Response]):
     __worker__ = DASHStreamWorker
     __writer__ = DASHStreamWriter
 
@@ -168,8 +170,8 @@ class DASHStreamReader(SegmentedStreamReader):
     writer: "DASHStreamWriter"
     stream: "DASHStream"
 
-    def __init__(self, stream: "DASHStream", representation_id, mime_type, *args, **kwargs):
-        super().__init__(stream, *args, **kwargs)
+    def __init__(self, stream: "DASHStream", representation_id, mime_type):
+        super().__init__(stream)
         self.mime_type = mime_type
         self.representation_id = representation_id
         log.debug("Opening DASH reader for: {0} ({1})".format(self.representation_id, self.mime_type))

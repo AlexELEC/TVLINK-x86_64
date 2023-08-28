@@ -60,7 +60,7 @@ class ByteRangeOffset:
         return bytes_start, self._calc_end(bytes_start, byterange.range)
 
 
-class HLSStreamWriter(SegmentedStreamWriter):
+class HLSStreamWriter(SegmentedStreamWriter[Sequence, Response]):
     reader: "HLSStreamReader"
     stream: "HLSStream"
 
@@ -281,7 +281,7 @@ class HLSStreamWriter(SegmentedStreamWriter):
             log.debug(f"+ Segment {sequence.num} complete")
 
 
-class HLSStreamWorker(SegmentedStreamWorker):
+class HLSStreamWorker(SegmentedStreamWorker[Sequence, Response]):
     reader: "HLSStreamReader"
     writer: "HLSStreamWriter"
     stream: "HLSStream"
@@ -511,7 +511,7 @@ class HLSStreamWorker(SegmentedStreamWorker):
                     return
 
 
-class HLSStreamReader(FilteredStream, SegmentedStreamReader):
+class HLSStreamReader(FilteredStream, SegmentedStreamReader[Sequence, Response]):
     __worker__ = HLSStreamWorker
     __writer__ = HLSStreamWriter
 

@@ -602,21 +602,6 @@
   </div>
 
   <p>&nbsp;</p>
-  <h4><b>License:</b></h4>
-  <p>&nbsp;</p>
-
-  <form class="form-inline">
-    <label class="form-control"><b>License key:</b></label>
-    <input id="lic_key" size="50%" class="form-control" type="password" value="{{lic_key}}"></input>
-    <button id="btn_ae_auth" type="button" onClick="server.set_lickey()">OK</button>
-  </form>
-  <p>&nbsp;</p>
-
-  <form class="form-inline">
-    <button id="lic_del" type="button" onClick="server.del_license()">Delete License</button>
-  </form>
-
-  <p>&nbsp;</p>
   <p>&nbsp;</p>
   <p>&nbsp;</p>
 

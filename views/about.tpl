@@ -9,7 +9,6 @@
 
   <div style="width:50%;margin: 0 auto;text-align:center;">
     <h4 id="version"><b>TVLINK version: {{version}}</b></h4>
-    <b>license: {{lictype}}</b>
     <p>&nbsp;</p>
     % if is_upd:
       <em id="upd_info">Version <b>{{git_ver}}</b> is available. You can update the program!</em>

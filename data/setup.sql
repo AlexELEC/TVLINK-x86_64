@@ -52,7 +52,6 @@ INSERT INTO settings (name, value) VALUES ('hls_live_edge', NULL);
 INSERT INTO settings (name, value) VALUES ('hls_playlist_reload_time', NULL);
 INSERT INTO settings (name, value) VALUES ('hls_restart', NULL);
 INSERT INTO settings (name, value) VALUES ('dbg_stream', NULL);
-INSERT INTO settings (name, value) VALUES ('lic_key', NULL);
 INSERT INTO settings (name, value) VALUES ('src_proxy', NULL);
 INSERT INTO settings (name, value) VALUES ('chunk_size', NULL);
 INSERT INTO settings (name, value) VALUES ('epg_sort', NULL);
