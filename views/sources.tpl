@@ -114,7 +114,7 @@
       <!-- Prio -->
       % ids = 'pri_' + row[0]
       <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
-        % for prio in range(1,21):
+        % for prio in range(1,31):
           <option {{'selected' if prio == row[3] else ""}} >{{prio}}</option>
         % end
         </select>
@@ -197,6 +197,7 @@
       <th width="4%" >Name</th>
       <th width="2%" >Enable</th> 
       <th width="2%" >Prio</th>
+      <th width="2%" >Limit</th>
       <th width="2%" >Add channels</th>
       <th width="2%" >New channels</th>
       <th width="2%" >Update period</th>
@@ -224,10 +225,15 @@
       <!-- Prio -->
       % ids = 'pri_' + row[0]
       <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
-        % for prio in range(1,21):
+        % for prio in range(1,31):
           <option {{'selected' if prio == row[3] else ""}} >{{prio}}</option>
         % end
         </select>
+      </td>
+      <!-- Max streams Limit -->
+      % ids = 'mst_' + row[0]
+      <td>
+        <input id={{ids}} type="number" step="1" min="0" max="10" class="form-control" value="{{row[11]}}" onchange="server.change_select('{{ids}}')" >
       </td>
       <!-- Add channels -->
       <td><label class="switch">
