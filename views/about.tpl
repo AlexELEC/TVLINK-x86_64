@@ -19,7 +19,8 @@
     <p><a href="https://alexelec.tv"><img src="/styles/logo.png" style="border:0" ></a></p>
     The program does not broadcast anything.
     TVLINK only caches the streams specified by the user or found in the open Internet access.
-    The program uses the open source code of the project <a href="https://streamlink.github.io/index.html">Streamlink</a>
+    The program uses the open source code of the project <a href="https://streamlink.github.io/index.html">Streamlink</a>.
+    <p><b><u><a style="color:Black;" href="https://wiki.alexelec.tv/?page_id=51">Program help on wiki.alexelec.tv</a>.</u></b></p>
     <p>&nbsp;</p>
 
     <table class="table" border="2" >
