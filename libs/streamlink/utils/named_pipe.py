@@ -12,7 +12,7 @@ from streamlink.compat import is_win32
 
 
 try:
-    from ctypes import windll, cast, c_ulong, c_void_p, byref  # type: ignore[attr-defined]
+    from ctypes import byref, c_ulong, c_void_p, cast, windll  # type: ignore[attr-defined]
 except ImportError:
     pass
 
@@ -27,7 +27,7 @@ class NamedPipeBase(abc.ABC):
     path: Path
 
     def __init__(self):
-        global _id
+        global _id  # noqa: PLW0603
         with _lock:
             _id += 1
             self.name = f"streamlinkpipe-{os.getpid()}-{_id}-{random.randint(0, 9999)}"
@@ -104,7 +104,7 @@ class NamedPipeWindows(NamedPipeBase):
             self.bufsize,
             self.bufsize,
             0,
-            None
+            None,
         )
         if self.pipe == self.INVALID_HANDLE_VALUE:
             self._get_last_error()
@@ -119,7 +119,7 @@ class NamedPipeWindows(NamedPipeBase):
             cast(data, c_void_p),
             len(data),
             byref(written),
-            None
+            None,
         )
         return written.value
 

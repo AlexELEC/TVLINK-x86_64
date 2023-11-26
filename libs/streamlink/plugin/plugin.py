@@ -7,6 +7,7 @@ from contextlib import suppress
 from functools import partial
 from http.cookiejar import Cookie
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     ClassVar,
@@ -17,7 +18,6 @@ from typing import (
     Optional,
     Pattern,
     Sequence,
-    TYPE_CHECKING,
     Tuple,
     Type,
     TypeVar,
@@ -30,6 +30,7 @@ from streamlink.cache import Cache
 from streamlink.exceptions import FatalPluginError, NoStreamsError, PluginError
 from streamlink.options import Argument, Arguments, Options
 from streamlink.user_input import UserInputRequester
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from streamlink.session import Streamlink
@@ -121,9 +122,9 @@ def iterate_streams(streams):
     for name, stream in streams:
         if isinstance(stream, list):
             for sub_stream in stream:
-                yield (name, sub_stream)
+                yield name, sub_stream
         else:
-            yield (name, stream)
+            yield name, stream
 
 
 def stream_type_priority(stream_types, stream):
@@ -191,7 +192,7 @@ class _MCollection(List[MType]):
         self._names: Dict[str, MType] = {}
 
     def __getitem__(self, item):
-        return self._names[item] if type(item) is str else super().__getitem__(item)
+        return self._names[item] if isinstance(item, str) else super().__getitem__(item)
 
 
 class Matchers(_MCollection[Matcher]):
@@ -247,6 +248,9 @@ class Plugin:
     match: Optional[Match] = None
     """A reference to the :class:`re.Match` result of the first matching matcher"""
 
+    options: Options
+    """Plugin options, initialized with the user-set values of the plugin's arguments"""
+
     # plugin metadata attributes
     id: Optional[str] = None
     """Metadata 'id' attribute: unique stream ID, etc."""
@@ -258,7 +262,6 @@ class Plugin:
     """Metadata 'category' attribute: name of a game being played, a music genre, etc."""
 
     _url: str = ""
-
 
     def __init__(self, session: "Streamlink", url: str, options: Optional[Options] = None):
         """
@@ -316,7 +319,7 @@ class Plugin:
     def default_stream_types(cls, streams):
         stream_types = ["hls", "http"]
 
-        for name, stream in iterate_streams(streams):
+        for _name, stream in iterate_streams(streams):
             stream_type = type(stream).shortname()
 
             if stream_type not in stream_types:
@@ -370,7 +373,7 @@ class Plugin:
         except NoStreamsError:
             return {}
         except (OSError, ValueError) as err:
-            raise PluginError(err)
+            raise PluginError(err) from err
 
         if not ostreams:
             return {}
@@ -424,7 +427,7 @@ class Plugin:
 
         # Create the best/worst synonyms
         def stream_weight_only(s):
-            return (self.stream_weight(s)[0] or (len(streams) == 1 and 1))
+            return self.stream_weight(s)[0] or (len(streams) == 1 and 1)
 
         stream_names = filter(stream_weight_only, streams.keys())
         sorted_streams = sorted(stream_names, key=stream_weight_only)
@@ -471,7 +474,7 @@ class Plugin:
             id=self.get_id(),
             author=self.get_author(),
             category=self.get_category(),
-            title=self.get_title()
+            title=self.get_title(),
         )
 
     def get_id(self) -> Optional[str]:
@@ -576,7 +579,7 @@ class Plugin:
             try:
                 return user_input_requester.ask(prompt)
             except OSError as err:
-                raise FatalPluginError(f"User input error: {err}")
+                raise FatalPluginError(f"User input error: {err}") from err
         raise FatalPluginError("This plugin requires user input, however it is not supported on this platform")
 
     def input_ask_password(self, prompt: str) -> str:
@@ -585,7 +588,7 @@ class Plugin:
             try:
                 return user_input_requester.ask_password(prompt)
             except OSError as err:
-                raise FatalPluginError(f"User input error: {err}")
+                raise FatalPluginError(f"User input error: {err}") from err
         raise FatalPluginError("This plugin requires user input, however it is not supported on this platform")
 
 
@@ -693,7 +696,7 @@ def pluginargument(
 
     def decorator(cls: Type[Plugin]) -> Type[Plugin]:
         if not issubclass(cls, Plugin):
-            raise TypeError(f"{repr(cls)} is not a Plugin")
+            raise TypeError(f"{repr(cls)} is not a Plugin")  # noqa: RUF010  # builtins.repr gets monkeypatched in tests
         if cls.arguments is None:
             cls.arguments = Arguments()
         cls.arguments.add(arg)

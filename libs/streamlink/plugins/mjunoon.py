@@ -2,6 +2,9 @@
 $description Pakistani live TV channels and video on-demand service. OTT service from mjunoon.
 $url mjunoon.tv
 $type live, vod
+$metadata author
+$metadata category
+$metadata title
 $region Pakistan
 """
 
@@ -11,10 +14,10 @@ import re
 from urllib.parse import urljoin
 
 from streamlink.plugin import Plugin, pluginmatcher
-from streamlink.plugin.api import validate
+from streamlink.plugin.api import validate, useragents
 from streamlink.stream.hls import HLSStream
 from streamlink.utils.crypto import AES, unpad
-from streamlink.utils import parse_json
+from streamlink.utils.parse import parse_json
 
 
 log = logging.getLogger(__name__)
@@ -163,6 +166,7 @@ class Mjunoon(Plugin):
         slug = self.match.group(1)
         log.debug(f"Slug={slug}")
 
+        self.session.http.headers.update({"User-Agent": useragents.CHROME})
         js_data = self.get_data()
         if not js_data:
             return

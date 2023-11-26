@@ -1,5 +1,4 @@
 import re
-from collections import OrderedDict
 from urllib.parse import parse_qsl, quote_plus, urlencode, urljoin, urlparse, urlunparse
 
 

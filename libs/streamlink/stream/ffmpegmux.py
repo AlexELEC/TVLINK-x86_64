@@ -8,7 +8,7 @@ from contextlib import suppress
 from functools import lru_cache
 from pathlib import Path
 from shutil import which
-from typing import List, Optional, TextIO, Union
+from typing import Any, ClassVar, Dict, Generic, List, Optional, Sequence, TextIO, TypeVar, Union
 
 from streamlink import StreamError
 from streamlink.stream.stream import Stream, StreamIO
@@ -21,7 +21,10 @@ log = logging.getLogger(__name__)
 _lock_resolve_command = threading.Lock()
 
 
-class MuxedStream(Stream):
+TSubstreams = TypeVar("TSubstreams", bound=Stream)
+
+
+class MuxedStream(Stream, Generic[TSubstreams]):
     """
     Muxes multiple streams into one output stream.
     """
@@ -31,8 +34,8 @@ class MuxedStream(Stream):
     def __init__(
         self,
         session,
-        *substreams: Stream,
-        **options
+        *substreams: TSubstreams,
+        **options,
     ):
         """
         :param streamlink.Streamlink session: Streamlink session instance
@@ -42,9 +45,9 @@ class MuxedStream(Stream):
         """
 
         super().__init__(session)
-        self.substreams = substreams
-        self.subtitles = options.pop("subtitles", {})
-        self.options = options
+        self.substreams: Sequence[TSubstreams] = substreams
+        self.subtitles: Dict[str, Stream] = options.pop("subtitles", {})
+        self.options: Dict[str, Any] = options
         self.muxer = None
 
     def open(self):
@@ -53,7 +56,7 @@ class MuxedStream(Stream):
         maps = self.options.get("maps", [])
         # only update the maps values if they haven't been set
         update_maps = not maps
-        for i, substream in enumerate(self.substreams):
+        for substream in self.substreams:
             log.debug("Opening {0} substream".format(substream.shortname()))
             if update_maps:
                 maps.append(len(fds))
@@ -83,7 +86,7 @@ class MuxedStream(Stream):
 
 
 class FFMPEGMuxer(StreamIO):
-    __commands__ = ["ffmpeg"]
+    __commands__: ClassVar[List[str]] = ["ffmpeg"]
 
     DEFAULT_OUTPUT_FORMAT = "mpegts"
     DEFAULT_VIDEO_CODEC = "copy"
@@ -131,7 +134,7 @@ class FFMPEGMuxer(StreamIO):
                     log.debug(f" {line}" if i > 0 else line)
 
         if not resolved:
-            log.warning("No valid FFmpeg binary was found. See the --ffmpeg-ffmpeg option.")
+            log.warning("No valid FFmpeg binary was found.")
             log.warning("Muxing streams is unsupported! Only a subset of the available streams can be returned!")
 
         return resolved
@@ -182,15 +185,15 @@ class FFMPEGMuxer(StreamIO):
         audiocodec = session.options.get("ffmpeg-audio-transcode") or options.pop("acodec", self.DEFAULT_AUDIO_CODEC)
         metadata = options.pop("metadata", {})
         maps = options.pop("maps", [])
-        copyts = session.options.get("ffmpeg-copyts")
+        copyts = session.options.get("ffmpeg-copyts") or options.pop("copyts", False)
         start_at_zero = session.options.get("ffmpeg-start-at-zero") or options.pop("start_at_zero", False)
 
-        self._cmd = [self.command(session), '-hide_banner', '-nostats', '-y', '-err_detect', 'ignore_err', '-stream_loop', '-1']
+        self._cmd = [self.command(session), "-nostats", "-y"]
         for np in self.pipes:
             self._cmd.extend(["-i", str(np.path)])
 
-        self._cmd.extend(['-c:v', videocodec])
-        self._cmd.extend(['-c:a', audiocodec])
+        self._cmd.extend(["-c:v", videocodec])
+        self._cmd.extend(["-c:a", audiocodec])
 
         for m in maps:
             self._cmd.extend(["-map", str(m)])
@@ -205,8 +208,8 @@ class FFMPEGMuxer(StreamIO):
                 stream_id = ":{0}".format(stream) if stream else ""
                 self._cmd.extend(["-metadata{0}".format(stream_id), datum])
 
-        self._cmd.extend(['-f', ofmt, outpath])
-        log.debug("ffmpeg command: {0}".format(' '.join(self._cmd)))
+        self._cmd.extend(["-f", ofmt, outpath])
+        log.debug("ffmpeg command: {0}".format(" ".join(self._cmd)))
 
         if session.options.get("ffmpeg-verbose-path"):
             self.errorlog = Path(session.options.get("ffmpeg-verbose-path")).expanduser().open("w")

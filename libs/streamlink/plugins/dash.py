@@ -2,9 +2,10 @@ import logging
 import re
 
 from streamlink.plugin import Plugin, pluginmatcher
-from streamlink.plugin.plugin import LOW_PRIORITY, parse_params, stream_weight
+from streamlink.plugin.plugin import parse_params, stream_weight
 from streamlink.stream.dash import DASHStream
 from streamlink.utils.url import update_scheme
+
 
 log = logging.getLogger(__name__)
 
@@ -12,8 +13,10 @@ log = logging.getLogger(__name__)
 @pluginmatcher(re.compile(
     r"dash://(?P<url>\S+)(?:\s(?P<params>.+))?$",
 ))
-@pluginmatcher(priority=LOW_PRIORITY, pattern=re.compile(
-    r"(?P<url>\S+\.mpd(?:\?\S*)?)(?:\s(?P<params>.+))?$",
+@pluginmatcher(re.compile(
+    # URL with explicit scheme, or URL with implicit HTTPS scheme and a path
+    r"(?P<url>[^/]+/\S+\.mpd(?:\?\S*)?)(?:\s(?P<params>.+))?$",
+    re.IGNORECASE,
 ))
 class MPEGDASH(Plugin):
     @classmethod

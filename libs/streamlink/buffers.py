@@ -74,6 +74,7 @@ class Buffer:
         self.current_chunk = None
         self.length = 0
 
+
 class RingBuffer(Buffer):
     """Circular buffer for use in multi-threaded consumer/filler."""
 

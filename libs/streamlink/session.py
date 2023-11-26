@@ -1,3 +1,4 @@
+import os, sys
 import logging
 import pkgutil
 import warnings
@@ -15,8 +16,9 @@ from streamlink.options import Options
 from streamlink.plugin.api.http_session import HTTPSession, TLSNoDHAdapter
 from streamlink.plugin.plugin import NO_PRIORITY, Matcher, Plugin
 from streamlink.utils.l10n import Localization
-from streamlink.utils import load_module
+from streamlink.utils.module import load_module
 from streamlink.utils.url import update_scheme
+
 
 # Ensure that the Logger class returned is Streamslink's for using the API (for backwards compatibility)
 logging.setLoggerClass(StreamlinkLogger)
@@ -24,6 +26,21 @@ log = logging.getLogger(__name__)
 
 
 _original_allowed_gai_family = urllib3_util_connection.allowed_gai_family  # type: ignore[attr-defined]
+
+
+def _get_deprecation_stacklevel_offset():
+    """Deal with stacklevels of both session.{g,s}et_option() and session.options.{g,s}et() calls"""
+    from inspect import currentframe
+
+    frame = currentframe().f_back.f_back
+    offset = 0
+    while frame:
+        if frame.f_code.co_filename == __file__ and frame.f_code.co_name in ("set_option", "get_option"):
+            offset += 1
+            break
+        frame = frame.f_back
+
+    return offset
 
 
 class PythonDeprecatedWarning(UserWarning):
@@ -46,14 +63,19 @@ class StreamlinkOptions(Options):
             except ValueError:
                 continue
 
-    # ---- getters
-
-    def _get_http_proxy(self, key):
+    @staticmethod
+    def _deprecate_https_proxy(key: str) -> None:
         if key == "https-proxy":
             warnings.warn(
                 "The `https-proxy` option has been deprecated in favor of a single `http-proxy` option",
                 StreamlinkDeprecationWarning,
+                stacklevel=4 + _get_deprecation_stacklevel_offset(),
             )
+
+    # ---- getters
+
+    def _get_http_proxy(self, key):
+        self._deprecate_https_proxy(key)
         return self.session.http.proxies.get("https" if key == "https-proxy" else "http")
 
     def _get_http_attr(self, key):
@@ -87,11 +109,7 @@ class StreamlinkOptions(Options):
         self.session.http.proxies["http"] \
             = self.session.http.proxies["https"] \
             = update_scheme("https://", value, force=False)
-        if key == "https-proxy":
-            warnings.warn(
-                "The `https-proxy` option has been deprecated in favor of a single `http-proxy` option",
-                StreamlinkDeprecationWarning,
-            )
+        self._deprecate_https_proxy(key)
 
     def _set_http_attr(self, key, value):
         setattr(self.session.http, self._OPTIONS_HTTP_ATTRS[key], value)
@@ -121,6 +139,7 @@ class StreamlinkOptions(Options):
             warnings.warn(
                 f"`{key}` has been deprecated in favor of the `{name}` option",
                 StreamlinkDeprecationWarning,
+                stacklevel=3 + _get_deprecation_stacklevel_offset(),
             )
 
         return inner
@@ -131,7 +150,7 @@ class StreamlinkOptions(Options):
 
     # ----
 
-    _OPTIONS_HTTP_ATTRS = {
+    _OPTIONS_HTTP_ATTRS: ClassVar[Dict[str, str]] = {
         "http-cookies": "cookies",
         "http-headers": "headers",
         "http-query-params": "params",
@@ -190,9 +209,15 @@ class Streamlink:
     Used for any kind of HTTP request made by plugin and stream implementations.
     """
 
+    options: Options
+    """
+    Session options, which is a subclass of :class:`Options <streamlink.options.Options>`
+    with additional getter/setter mappings for special options.
+    """
+
     def __init__(
         self,
-        options: Optional[Dict[str, Any]] = None
+        options: Optional[Dict[str, Any]] = None,
     ):
         """
         :param options: Custom options
@@ -213,15 +238,16 @@ class Streamlink:
             "stream-timeout": 60.0,
             "hls-live-edge": 3,
             "hls-live-restart": False,
-            "hls-start-offset": 0,
+            "hls-start-offset": 0.0,
             "hls-duration": None,
             "hls-playlist-reload-attempts": 3,
-            "hls-playlist-reload-time": "default",  # default, duration, segment, average
+            "hls-playlist-reload-time": "default", # default, duration, segment, average
             "hls-segment-queue-threshold": 3,
             "hls-segment-stream-data": False,
             "hls-segment-ignore-names": [],
             "hls-segment-key-uri": None,
             "hls-audio-select": [],
+            "dash-manifest-reload-attempts": 3,
             "ffmpeg-ffmpeg": None,
             "ffmpeg-no-validation": True,
             "ffmpeg-verbose": False,
@@ -238,6 +264,8 @@ class Streamlink:
             self.options.update(options)
         self.plugins: Dict[str, Type[Plugin]] = {}
         self.load_builtin_plugins()
+        self.banlist = []
+        self.load_banlist()
 
     def set_option(self, key: str, value: Any) -> None:
         """
@@ -367,7 +395,7 @@ class Streamlink:
             * - hls-playlist-reload-attempts
               - ``int``
               - ``3``
-              - Number of HLS playlist reload attempts before giving up
+              - Max number of HLS playlist reload attempts before giving up
             * - hls-playlist-reload-time
               - ``str | float``
               - ``"default"``
@@ -399,6 +427,10 @@ class Streamlink:
               - ``[]``
               - Select a specific audio source or sources when multiple audio sources are available,
                 by language code or name, or ``"*"`` (asterisk)
+            * - dash-manifest-reload-attempts
+              - ``int``
+              - ``3``
+              - Max number of DASH manifest reload attempts before giving up
             * - hls-segment-attempts *(deprecated)*
               - ``int``
               - ``3``
@@ -485,7 +517,7 @@ class Streamlink:
 
         return self.options.get(key)
 
-    @lru_cache(maxsize=128)
+    @lru_cache(maxsize=128)  # noqa: B019
     def resolve_url(
         self,
         url: str,
@@ -507,21 +539,16 @@ class Streamlink:
 
         matcher: Matcher
         candidate: Optional[Tuple[str, Type[Plugin]]] = None
-        priority = NO_PRIORITY
         for name, plugin in self.plugins.items():
             if plugin.matchers:
                 for matcher in plugin.matchers:
-                    if matcher.priority > priority and matcher.pattern.match(url) is not None:
-                        candidate = name, plugin
-                        priority = matcher.priority
-
-        if candidate:
-            return candidate[0], candidate[1], url
+                    if matcher.pattern.match(url) is not None:
+                        log.debug(f"Plugin [{name}] found for: {url}")
+                        return name, plugin, url
 
         if follow_redirect:
             # Attempt to handle a redirect URL
             try:
-                # noinspection PyArgumentList
                 res = self.http.head(url, allow_redirects=True, acceptable_status=[501])  # type: ignore[call-arg]
 
                 # Fall back to GET request if server doesn't handle HEAD.
@@ -533,6 +560,7 @@ class Streamlink:
             except PluginError:
                 pass
 
+        log.debug(f"Plugin not found for: {url}")
         raise NoPluginError
 
     def resolve_url_no_redirect(self, url: str) -> Tuple[str, Type[Plugin], str]:
@@ -558,7 +586,7 @@ class Streamlink:
         :return: A :class:`dict` of stream names and :class:`Stream <streamlink.stream.Stream>` instances
         """
 
-        pluginname, pluginclass, resolved_url = self.resolve_url(url)
+        _pluginname, pluginclass, resolved_url = self.resolve_url(url)
         plugin = pluginclass(self, resolved_url, options)
 
         return plugin.streams(**params)
@@ -580,7 +608,11 @@ class Streamlink:
         """
 
         success = False
-        for loader, name, ispkg in pkgutil.iter_modules([path]):
+        tmp_plugins = {}
+        tDash = {}
+        tHls = {}
+        tHttp = {}
+        for _loader, name, _ispkg in pkgutil.iter_modules([path]):
             # set the full plugin module name
             # use the "streamlink.plugins." prefix even for sideloaded plugins
             module_name = f"streamlink.plugins.{name}"
@@ -594,11 +626,39 @@ class Streamlink:
                 continue
             success = True
             plugin = mod.__plugin__
-            if name in self.plugins:
-                log.debug(f"Plugin {name} is being overridden by {mod.__file__}")
-            self.plugins[name] = plugin
 
+            if name == 'dash':
+                tDash[name] = plugin
+            elif name == 'hls':
+                tHls[name] = plugin
+            elif name == 'http':
+                tHttp[name] = plugin
+            else:
+                if name in tmp_plugins:
+                    log.debug(f"Plugin {name} is being overridden by {mod.__file__}")
+                tmp_plugins[name] = plugin
+
+        if tHttp:
+            tmp_plugins.update(tHttp)
+        if tDash:
+            tDash.update(tmp_plugins)
+            tmp_plugins = tDash
+        if tHls:
+            tHls.update(tmp_plugins)
+            tmp_plugins = tHls
+
+        self.plugins = tmp_plugins
         return success
+
+    def load_banlist(self):
+        root_dir = os.path.dirname(sys.argv[0])
+        BAN_FILE = os.path.join(f"{root_dir}/libs/streamlink", 'BANLIST')
+        if os.path.isfile(BAN_FILE):
+            data = ''
+            with open(BAN_FILE, "r") as f:
+                data = f.read()
+            if data:
+                self.banlist = data.splitlines()
 
     @property
     def version(self):

@@ -166,7 +166,7 @@ def _showwarning(message, category, filename, lineno, file=None, line=None):
 
 
 def capturewarnings(capture=False):
-    global _showwarning_default
+    global _showwarning_default  # noqa: PLW0603
 
     if capture:
         if _showwarning_default is None:
@@ -184,7 +184,7 @@ def basicConfig(
     filemode: str = "a",
     stream: Optional[IO] = None,
     level: Optional[str] = None,
-    format: str = FORMAT_BASE,
+    format: str = FORMAT_BASE,  # noqa: A002  # TODO: rename to "fmt" (breaking)
     style: Literal["%", "{", "$"] = FORMAT_STYLE,
     datefmt: str = FORMAT_DATE,
     remove_base: Optional[List[str]] = None,

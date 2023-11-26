@@ -21,21 +21,23 @@ class HTTPStream(Stream):
         session: Streamlink,
         url: str,
         buffered: bool = True,
-        **args
+        **kwargs,
     ):
         """
         :param session: Streamlink session instance
         :param url: The URL of the HTTP stream
         :param buffered: Wrap stream output in an additional reader-thread
-        :param args: Additional keyword arguments passed to :meth:`requests.Session.request`
+        :param kwargs: Additional keyword arguments passed to :meth:`requests.Session.request`
         """
 
         super().__init__(session)
-        self.args = dict(url=url, **args)
+        self.args = self.session.http.valid_request_args(**kwargs)
+        self.args["url"] = url
         self.buffered = buffered
         self.fd = None
+        self.chunk_size = self.session.get_option("chunk-size")
 
-    def __json__(self):
+    def __json__(self):  # noqa: PLW3201
         req = self.session.http.prepare_new_request(**self.args)
 
         return dict(
@@ -61,7 +63,6 @@ class HTTPStream(Stream):
         reqargs = self.session.http.valid_request_args(**self.args)
         reqargs.setdefault("method", "GET")
         timeout = self.session.options.get("stream-timeout")
-        chunk_size = self.session.get_option("chunk-size")
         res = self.session.http.request(
             stream=True,
             exception=StreamError,
@@ -69,9 +70,9 @@ class HTTPStream(Stream):
             **reqargs,
         )
 
-        self.fd = StreamIOIterWrapper(res.iter_content(chunk_size))
+        self.fd = StreamIOIterWrapper(res.iter_content(self.chunk_size))
         if self.buffered:
-            self.fd = StreamIOThreadWrapper(self.session, self.fd, timeout=timeout, chunk_size=chunk_size)
+            self.fd = StreamIOThreadWrapper(self.session, self.fd, timeout=timeout, chunk_size=self.chunk_size)
 
         return self.fd
 

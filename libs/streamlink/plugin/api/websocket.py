@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import unquote_plus, urlparse
 
 from certifi import where as certify_where
-from websocket import ABNF, STATUS_NORMAL, WebSocketApp, enableTrace  # type: ignore[import]
+from websocket import ABNF, STATUS_NORMAL, WebSocketApp, enableTrace  # type: ignore[attr-defined,import]
 
 from streamlink.logger import TRACE, root as rootlogger
 from streamlink.session import Streamlink
@@ -48,9 +48,9 @@ class WebsocketClient(Thread):
         if not header:
             header = []
         elif isinstance(header, dict):
-            header = [f"{str(k)}: {str(v)}" for k, v in header.items()]
+            header = [f"{k!s}: {v!s}" for k, v in header.items()]
         if not any(True for h in header if h.startswith("User-Agent: ")):
-            header.append(f"User-Agent: {str(session.http.headers['User-Agent'])}")
+            header.append(f"User-Agent: {session.http.headers['User-Agent']!s}")
 
         proxy_options: Dict[str, Any] = {}
         http_proxy: Optional[str] = session.get_option("http-proxy")
@@ -141,7 +141,7 @@ class WebsocketClient(Thread):
             )
 
     def close(self, status: int = STATUS_NORMAL, reason: Union[str, bytes] = "", timeout: int = 3) -> None:
-        if type(reason) is str:
+        if isinstance(reason, str):
             reason = bytes(reason, encoding="utf-8")
         self.ws.close(status=status, reason=reason, timeout=timeout)
         if self.is_alive() and current_thread() is not self:

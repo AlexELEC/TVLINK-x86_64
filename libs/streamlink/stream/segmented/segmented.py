@@ -3,12 +3,13 @@ from __future__ import annotations
 import logging
 import queue
 from concurrent import futures
-from concurrent.futures import Future, ThreadPoolExecutor
-from sys import version_info
+from concurrent.futures import Future
 from threading import Event, Thread, current_thread
 from typing import ClassVar, Generator, Generic, Optional, Tuple, Type, TypeVar
 
 from streamlink.buffers import RingBuffer
+from streamlink.stream.segmented.concurrent import ThreadPoolExecutor
+from streamlink.stream.segmented.segment import Segment
 from streamlink.stream.stream import Stream, StreamIO
 
 
@@ -18,46 +19,7 @@ except ImportError:  # pragma: no cover
     from typing_extensions import TypeAlias
 
 
-log = logging.getLogger(__name__)
-
-BAN_LIST = (
-            '/404/',
-            '/405/',
-            'vod/ban',
-            'vod/deny',
-            '/empty.ts',
-            '/drop.ts',
-            '/test_end.ts',
-            '/disabled/',
-            'video/money',
-            'errors/banned',
-            'vod/allow_all_n',
-            'lock/banner_404',
-            'lock/banner_dead',
-            )
-
-class CompatThreadPoolExecutor(ThreadPoolExecutor):
-    if version_info < (3, 9):
-        def shutdown(self, wait=True, cancel_futures=False):  # pragma: no cover
-            with self._shutdown_lock:
-                self._shutdown = True
-                if cancel_futures:
-                    # Drain all work items from the queue, and then cancel their
-                    # associated futures.
-                    while True:
-                        try:
-                            work_item = self._work_queue.get_nowait()
-                        except queue.Empty:
-                            break
-                        if work_item is not None:
-                            work_item.future.cancel()
-
-                # Send a wake-up to prevent threads calling
-                # _work_queue.get(block=True) from permanently blocking.
-                self._work_queue.put(None)
-            if wait:
-                for t in self._threads:
-                    t.join()
+log = logging.getLogger(".".join(__name__.split(".")[:-1]))
 
 
 class AwaitableMixin:
@@ -73,7 +35,7 @@ class AwaitableMixin:
         return not self._wait.wait(time)
 
 
-TSegment = TypeVar("TSegment")
+TSegment = TypeVar("TSegment", bound=Segment)
 TResult = TypeVar("TResult")
 TResultFuture: TypeAlias = "Future[Optional[TResult]]"
 TQueueItem: TypeAlias = Optional[Tuple[TSegment, TResultFuture, Tuple]]
@@ -109,7 +71,7 @@ class SegmentedStreamWriter(AwaitableMixin, Thread, Generic[TSegment, TResult]):
 
         size = self.session.options.get("segments-queue")
 
-        self.executor = CompatThreadPoolExecutor(max_workers=self.threads)
+        self.executor = ThreadPoolExecutor(max_workers=self.threads)
         self._queue: queue.Queue[TQueueItem] = queue.Queue(size)
 
     def close(self) -> None:
@@ -120,7 +82,7 @@ class SegmentedStreamWriter(AwaitableMixin, Thread, Generic[TSegment, TResult]):
         if self.closed:  # pragma: no cover
             return
 
-        log.debug("*** Closing writer thread")
+        log.debug("Closing writer thread")
 
         self.closed = True
         self._wait.set()
@@ -192,12 +154,6 @@ class SegmentedStreamWriter(AwaitableMixin, Thread, Generic[TSegment, TResult]):
 
             segment, future, data = item
 
-            for ban in BAN_LIST:
-                if ban in segment.segment.uri:
-                    log.error(f"BANNED: provider blocked stream [{segment.segment.uri}]")
-                    self.closed = True
-                    break
-
             while not self.closed:  # pragma: no branch
                 try:
                     result = self._future_result(future)
@@ -207,8 +163,7 @@ class SegmentedStreamWriter(AwaitableMixin, Thread, Generic[TSegment, TResult]):
                     break
 
                 if result is not None:  # pragma: no branch
-                    try: self.write(segment, result, *data)
-                    except: pass
+                    self.write(segment, result, *data)
 
                 break
 
@@ -243,7 +198,7 @@ class SegmentedStreamWorker(AwaitableMixin, Thread, Generic[TSegment, TResult]):
         if self.closed:  # pragma: no cover
             return
 
-        log.debug("*** Closing worker thread")
+        log.debug("Closing worker thread")
 
         self.closed = True
         self._wait.set()
@@ -260,7 +215,6 @@ class SegmentedStreamWorker(AwaitableMixin, Thread, Generic[TSegment, TResult]):
 
     def run(self) -> None:
         for segment in self.iter_segments():
-            #log.debug(f"--- Segment: {segment.num}")
             if self.closed:  # pragma: no cover
                 break
             self.writer.put(segment)
@@ -310,10 +264,8 @@ class SegmentedStreamReader(StreamIO, Generic[TSegment, TResult]):
         super().close()
 
     def read(self, size: int) -> bytes:
-        if size:
-            return self.buffer.read(
-                size,
-                block=self.writer.is_alive(),
-                timeout=self.timeout
-            )
-        else: return b''
+        return self.buffer.read(
+            size,
+            block=self.writer.is_alive(),
+            timeout=self.timeout,
+        )

@@ -1,44 +1,47 @@
+"""
+$description Global live-streaming and video hosting social platform owned by Google.
+$url youtube.com
+$url youtu.be
+$type live, vod
+$metadata id
+$metadata author
+$metadata category
+$metadata title
+$notes Protected videos are not supported
+"""
+
 import json
 import logging
 import re
-from html import unescape
 from urllib.parse import urlparse, urlunparse
 
 from streamlink.plugin import Plugin, PluginError, pluginmatcher
 from streamlink.plugin.api import useragents, validate
-from streamlink.plugin.api.utils import itertags
 from streamlink.stream.ffmpegmux import MuxedStream
 from streamlink.stream.hls import HLSStream
 from streamlink.stream.http import HTTPStream
-from streamlink.utils import parse_json, search_dict
+from streamlink.utils.data import search_dict
+from streamlink.utils.parse import parse_json
+
 
 log = logging.getLogger(__name__)
 
 
-@pluginmatcher(re.compile(r"""
-    https?://(?:\w+\.)?youtube\.com/
-    (?:
-        (?:
-            (?:
-                watch\?(?:.*&)*v=
-                |
-                (?P<embed>embed)/(?!live_stream)
-                |
-                v/
-            )(?P<video_id>[\w-]{11})
-        )
-        |
-        embed/live_stream\?channel=(?P<embed_live>[^/?&]+)
-        |
-        (?:c(?:hannel)?/|user/)?(?P<channel>[^/?]+)(?P<channel_live>/live)?/?$
-    )
-    |
-    https?://youtu\.be/(?P<video_id_short>[\w-]{11})
-""", re.VERBOSE))
+@pluginmatcher(name="default", pattern=re.compile(
+    r"https?://(?:\w+\.)?youtube\.com/(?:v/|live/|watch\?(?:.*&)?v=)(?P<video_id>[\w-]{11})",
+))
+@pluginmatcher(name="channel", pattern=re.compile(
+    r"https?://(?:\w+\.)?youtube\.com/(?:@|c(?:hannel)?/|user/)?(?P<channel>[^/?]+)(?P<live>/live)?/?$",
+))
+@pluginmatcher(name="embed", pattern=re.compile(
+    r"https?://(?:\w+\.)?youtube\.com/embed/(?:live_stream\?channel=(?P<live>[^/?&]+)|(?P<video_id>[\w-]{11}))",
+))
+@pluginmatcher(name="shorthand", pattern=re.compile(
+    r"https?://youtu\.be/(?P<video_id>[\w-]{11})",
+))
 class YouTube(Plugin):
     _re_ytInitialData = re.compile(r"""var\s+ytInitialData\s*=\s*({.*?})\s*;\s*</script>""", re.DOTALL)
     _re_ytInitialPlayerResponse = re.compile(r"""var\s+ytInitialPlayerResponse\s*=\s*({.*?});\s*var\s+\w+\s*=""", re.DOTALL)
-    _re_mime_type = re.compile(r"""^(?P<type>\w+)/(?P<container>\w+); codecs="(?P<codecs>.+)"$""")
 
     _url_canonical = "https://www.youtube.com/watch?v={video_id}"
     _url_channelid_live = "https://www.youtube.com/channel/{channel_id}/live"
@@ -75,16 +78,16 @@ class YouTube(Plugin):
         # translate input URLs to be able to find embedded data and to avoid unnecessary HTTP redirects
         if parsed.netloc == "gaming.youtube.com":
             self.url = urlunparse(parsed._replace(scheme="https", netloc="www.youtube.com"))
-        elif self.match.group("video_id_short") is not None:
-            self.url = self._url_canonical.format(video_id=self.match.group("video_id_short"))
-        elif self.match.group("embed") is not None:
-            self.url = self._url_canonical.format(video_id=self.match.group("video_id"))
-        elif self.match.group("embed_live") is not None:
-            self.url = self._url_channelid_live.format(channel_id=self.match.group("embed_live"))
+        elif self.matches["shorthand"]:
+            self.url = self._url_canonical.format(video_id=self.match["video_id"])
+        elif self.matches["embed"] and self.match["video_id"]:
+            self.url = self._url_canonical.format(video_id=self.match["video_id"])
+        elif self.matches["embed"] and self.match["live"]:
+            self.url = self._url_channelid_live.format(channel_id=self.match["live"])
         elif parsed.scheme != "https":
             self.url = urlunparse(parsed._replace(scheme="https"))
 
-        self.session.http.headers.update({'User-Agent': useragents.CHROME})
+        self.session.http.headers.update({"User-Agent": useragents.CHROME})
 
     @classmethod
     def stream_weight(cls, stream):
@@ -103,6 +106,34 @@ class YouTube(Plugin):
 
         return weight, group
 
+    @staticmethod
+    def _schema_consent(data):
+        schema_consent = validate.Schema(
+            validate.parse_html(),
+            validate.any(
+                validate.xml_find(".//form[@action='https://consent.youtube.com/s']"),
+                validate.all(
+                    validate.xml_xpath(".//form[@action='https://consent.youtube.com/save']"),
+                    validate.filter(lambda elem: elem.xpath(".//input[@type='hidden'][@name='set_ytc'][@value='true']")),
+                    validate.get(0),
+                ),
+            ),
+            validate.union((
+                validate.get("action"),
+                validate.xml_xpath(".//input[@type='hidden']"),
+            )),
+        )
+        return schema_consent.validate(data)
+
+    def _schema_canonical(self, data):
+        schema_canonical = validate.Schema(
+            validate.parse_html(),
+            validate.xml_xpath_string(".//link[@rel='canonical'][1]/@href"),
+            validate.regex(self.matchers["default"].pattern),
+            validate.get("video_id"),
+        )
+        return schema_canonical.validate(data)
+
     @classmethod
     def _schema_playabilitystatus(cls, data):
         schema = validate.Schema(
@@ -113,7 +144,7 @@ class YouTube(Plugin):
             validate.get("playabilityStatus"),
             validate.union_get("status", "reason"),
         )
-        return validate.validate(schema, data)
+        return schema.validate(data)
 
     @classmethod
     def _schema_videodetails(cls, data):
@@ -133,27 +164,27 @@ class YouTube(Plugin):
                     validate.any(
                         validate.all(
                             {"playerMicroformatRenderer": dict},
-                            validate.get("playerMicroformatRenderer")
+                            validate.get("playerMicroformatRenderer"),
                         ),
                         validate.all(
                             {"microformatDataRenderer": dict},
-                            validate.get("microformatDataRenderer")
-                        )
+                            validate.get("microformatDataRenderer"),
+                        ),
                     ),
                     {
-                        "category": str
-                    }
-                )
+                        "category": str,
+                    },
+                ),
             },
             validate.union_get(
                 ("videoDetails", "videoId"),
                 ("videoDetails", "author"),
                 ("microformat", "category"),
                 ("videoDetails", "title"),
-                ("videoDetails", "isLive")
-            )
+                ("videoDetails", "isLive"),
+            ),
         )
-        videoDetails = validate.validate(schema, data)
+        videoDetails = schema.validate(data)
         log.trace(f"videoDetails = {videoDetails!r}")
         return videoDetails
 
@@ -166,28 +197,28 @@ class YouTube(Plugin):
                     {
                         "itag": int,
                         "qualityLabel": str,
-                        validate.optional("url"): validate.url(scheme="http")
+                        validate.optional("url"): validate.url(scheme="http"),
                     },
-                    validate.union_get("url", "qualityLabel")
+                    validate.union_get("url", "qualityLabel"),
                 )],
                 validate.optional("adaptiveFormats"): [validate.all(
                     {
                         "itag": int,
                         "mimeType": validate.all(
                             str,
-                            validate.transform(cls._re_mime_type.search),
+                            validate.regex(re.compile(r"""^(?P<type>\w+)/(?P<container>\w+); codecs="(?P<codecs>.+)"$""")),
                             validate.union_get("type", "codecs"),
                         ),
                         validate.optional("url"): validate.url(scheme="http"),
-                        validate.optional("qualityLabel"): str
+                        validate.optional("qualityLabel"): str,
                     },
-                    validate.union_get("url", "qualityLabel", "itag", "mimeType")
-                )]
+                    validate.union_get("url", "qualityLabel", "itag", "mimeType"),
+                )],
             }},
             validate.get("streamingData"),
-            validate.union_get("hlsManifestUrl", "formats", "adaptiveFormats")
+            validate.union_get("hlsManifestUrl", "formats", "adaptiveFormats"),
         )
-        hls_manifest, formats, adaptive_formats = validate.validate(schema, data)
+        hls_manifest, formats, adaptive_formats = schema.validate(data)
         return hls_manifest, formats or [], adaptive_formats or []
 
     def _create_adaptive_streams(self, adaptive_formats):
@@ -197,7 +228,7 @@ class YouTube(Plugin):
         best_audio_itag = None
 
         # Extract audio streams from the adaptive format list
-        for url, label, itag, mimeType in adaptive_formats:
+        for url, _label, itag, mimeType in adaptive_formats:
             if url is None:
                 continue
 
@@ -238,12 +269,14 @@ class YouTube(Plugin):
     def _get_res(self, url):
         res = self.session.http.get(url)
         if urlparse(res.url).netloc == "consent.youtube.com":
-            c_data = {}
-            for _i in itertags(res.text, "input"):
-                if _i.attributes.get("type") == "hidden":
-                    c_data[_i.attributes.get("name")] = unescape(_i.attributes.get("value"))
-            log.debug(f"c_data_keys: {', '.join(c_data.keys())}")
-            res = self.session.http.post("https://consent.youtube.com/s", data=c_data)
+            target, elems = self._schema_consent(res.text)
+            c_data = {
+                elem.attrib.get("name"): elem.attrib.get("value")
+                for elem in elems
+            }
+            log.debug(f"consent target: {target}")
+            log.debug(f"consent data: {', '.join(c_data.keys())}")
+            res = self.session.http.post(target, data=c_data)
         return res
 
     @staticmethod
@@ -255,16 +288,15 @@ class YouTube(Plugin):
         return parse_json(match.group(1))
 
     def _get_data_from_api(self, res):
-        _i_video_id = self.match.group("video_id")
+        try:
+            _i_video_id = self.match["video_id"]
+        except IndexError:
+            _i_video_id = None
+
         if _i_video_id is None:
-            for link in itertags(res.text, "link"):
-                if link.attributes.get("rel") == "canonical":
-                    try:
-                        _i_video_id = self.matcher.match(link.attributes.get("href")).group("video_id")
-                    except AttributeError:
-                        return
-                    break
-            else:
+            try:
+                _i_video_id = self._schema_canonical(res.text)
+            except (PluginError, TypeError):
                 return
 
         try:
@@ -296,15 +328,17 @@ class YouTube(Plugin):
                     },
                     "user": {"lockedSafetyMode": "false"},
                     "request": {"useSsl": "true"},
-                }
+                },
             }),
         )
         return parse_json(res.text)
 
     @staticmethod
     def _data_video_id(data):
-        if data:
-            for videoRenderer in search_dict(data, "videoRenderer"):
+        if not data:
+            return None
+        for key in ("videoRenderer", "gridVideoRenderer"):
+            for videoRenderer in search_dict(data, key):
                 videoId = videoRenderer.get("videoId")
                 if videoId is not None:
                     return videoId
@@ -323,7 +357,7 @@ class YouTube(Plugin):
     def _get_streams(self):
         res = self._get_res(self.url)
 
-        if self.match.group("channel") and not self.match.group("channel_live"):
+        if self.matches["channel"] and not self.match["live"]:
             initial = self._get_data_from_regex(res, self._re_ytInitialData, "initial data")
             video_id = self._data_video_id(initial)
             if video_id is None:

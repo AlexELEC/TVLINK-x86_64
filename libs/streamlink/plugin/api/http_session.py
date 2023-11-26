@@ -1,5 +1,6 @@
 import re
 import time
+import logging
 import warnings
 from typing import Any, Dict, Pattern, Tuple
 
@@ -11,8 +12,9 @@ from requests.adapters import HTTPAdapter
 from streamlink.exceptions import PluginError, StreamlinkDeprecationWarning
 from streamlink.packages.requests_file import FileAdapter
 from streamlink.plugin.api import useragents
-from streamlink.utils import parse_json, parse_xml
+from streamlink.utils.parse import parse_json, parse_xml
 
+log = logging.getLogger(__name__)
 
 try:
     from urllib3.util import create_urllib3_context  # type: ignore[attr-defined]
@@ -26,7 +28,6 @@ try:
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 except AttributeError:
     pass
-
 
 # urllib3>=2.0.0: enforce_content_length now defaults to True (keep the override for backwards compatibility)
 class _HTTPResponse(urllib3.response.HTTPResponse):
@@ -92,10 +93,10 @@ class HTTPSession(Session):
     def __init__(self):
         super().__init__()
 
-        self.headers['User-Agent'] = useragents.FIREFOX
+        self.headers["User-Agent"] = useragents.FIREFOX
         self.timeout = 20.0
 
-        self.mount('file://', FileAdapter())
+        self.mount("file://", FileAdapter())
 
     @classmethod
     def determine_json_encoding(cls, sample: bytes):
@@ -180,12 +181,12 @@ class HTTPSession(Session):
                 res = super().request(
                     method,
                     url,
+                    *args,
                     headers=headers,
                     params=params,
                     timeout=timeout,
                     proxies=proxies,
-                    *args,
-                    **kwargs
+                    **kwargs,
                 )
                 if raise_for_status and res.status_code not in acceptable_status:
                     res.raise_for_status()
@@ -193,8 +194,10 @@ class HTTPSession(Session):
             except KeyboardInterrupt:
                 raise
             except Exception as rerr:
+                log.debug(f"Retries: {retries}/{total_retries}")
+                log.debug(f"Reasons: {rerr}")
                 if retries >= total_retries:
-                    err = exception(f"Unable to open URL: {url} ({rerr})")
+                    err = exception(f"Unable to open URL: {rerr}")
                     err.err = rerr
                     raise err from None  # TODO: fix this
                 retries += 1
