@@ -612,6 +612,7 @@ class Streamlink:
         tDash = {}
         tHls = {}
         tHttp = {}
+        tYouTV = {}
         for _loader, name, _ispkg in pkgutil.iter_modules([path]):
             # set the full plugin module name
             # use the "streamlink.plugins." prefix even for sideloaded plugins
@@ -633,6 +634,8 @@ class Streamlink:
                 tHls[name] = plugin
             elif name == 'http':
                 tHttp[name] = plugin
+            elif name == 'youtv':
+                tYouTV[name] = plugin
             else:
                 if name in tmp_plugins:
                     log.debug(f"Plugin {name} is being overridden by {mod.__file__}")
@@ -646,6 +649,9 @@ class Streamlink:
         if tHls:
             tHls.update(tmp_plugins)
             tmp_plugins = tHls
+        if tYouTV:
+            tYouTV.update(tmp_plugins)
+            tmp_plugins = tYouTV
 
         self.plugins = tmp_plugins
         return success

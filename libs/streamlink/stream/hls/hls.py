@@ -154,17 +154,18 @@ class HLSStreamWriter(SegmentedStreamWriter[HLSSegment, Response]):
             self.queue(None, None)
             return
 
-        # always queue the segment's map first if it exists
+        # queue segment-map first
         if segment.map is not None:
-            cached_map_future = self.map_cache.get(segment.map.uri)
-            # use cached map request if not a stream discontinuity
-            # don't fetch multiple times when map request of previous segment is still pending
-            if cached_map_future is not None and not segment.discontinuity:
-                future = cached_map_future
-            else:
+            # get the cached segment-map, if available
+            future = self.map_cache.get(segment.map.uri)
+            if future and segment.discontinuity:
+                # special case: queue the cached segment map if it's set on a discontinuity segment
+                self.queue(segment, future, True)
+            elif not future:
+                # keep the segment-map in the cache, so we can check whether we've already queued it
                 future = self.executor.submit(self.fetch_map, segment)
                 self.map_cache.set(segment.map.uri, future)
-            self.queue(segment, future, True)
+                self.queue(segment, future, True)
 
         # regular segment request
         future = self.executor.submit(self.fetch, segment)
@@ -270,7 +271,9 @@ class HLSStreamWriter(SegmentedStreamWriter[HLSSegment, Response]):
                 for chunk in result.iter_content(self.chunk_size):
                     self.reader.buffer.write(chunk)
             except (ChunkedEncodingError, ContentDecodingError, ConnectionError) as err:
-                log.error(f"Download of segment {segment.num} failed: {err}")
+                log.error(f"Download of segment {segment.num} failed: {segment.uri[:180]}")
+                log.error(f"Reasons for segment {segment.num} failed: {err}")
+                result.close()
                 return
 
         if is_map:

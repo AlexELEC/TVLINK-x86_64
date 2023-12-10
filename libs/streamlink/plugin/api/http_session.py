@@ -174,8 +174,6 @@ class HTTPSession(Session):
             headers.update(session.headers)
             params.update(session.params)
 
-        headers['Connection'] = 'close'
-
         while True:
             try:
                 res = super().request(
