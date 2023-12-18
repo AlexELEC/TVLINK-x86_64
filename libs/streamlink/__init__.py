@@ -9,7 +9,7 @@ Full documentation is available at https://streamlink.github.io.
 
 """
 
-__version__ = "6.4.2"
+__version__ = "6.5.0"
 __title__ = "streamlink"
 __license__ = "Simplified BSD"
 __author__ = "Streamlink"

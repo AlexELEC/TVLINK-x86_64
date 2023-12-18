@@ -453,7 +453,7 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
             ]))
             log.debug("; ".join([
                 f"Start offset: {self.duration_offset_start}",
-                f"Duration: {self.duration_limit}",
+                f"Duration Limit: {self.duration_limit}",
                 f"Start Sequence: {self.playlist_sequence}",
                 f"End Sequence: {self.playlist_end}",
             ]))
