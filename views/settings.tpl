@@ -12,12 +12,6 @@
     function modalClose(winID) {
         document.getElementById(winID).style.display = "none";
     }
-    function delToken(usrToken) {
-        if (confirm(usrToken + ": delete this Token?")) {
-            server.del_token(usrToken);
-            location.reload(true);
-        }
-    }
   </script>
 
     <% tbl_head = '''
@@ -176,39 +170,27 @@
 
   <!-- Authentication Token -->
 
-  % include('add-token.tpl')
-
   <p>&nbsp;</p>
-  <b>Authentication Token (playlist/streams):</b>
-  <p>&nbsp;</p>
-
-  <form id="add_token" class="form-inline">
-    <button id="btn_add_token" type="button" onClick="server.add_token()">Add Token</button>
-  </form>
-  <p>&nbsp;</p>
-
-  <table class="table" width="100%" border="2" id="token_table" style={{"display:block" if in_token else "display:none"}} >
-
+  <table width="100%">
     <tr>
-      <th width="5%" >Token</th>
-      <th width="10%" >Comment</th>
-    </tr>
-
-    <!-- in_token [ 0-usrToken, 1-usrText ] -->
-    % for row in in_token:
-    <tr>
-      <!-- Token -->
-      <td>
-        <a href="/{{row[0]}}/playlist">{{row[0]}}    </a>
-        <button class="btn" onClick="delToken('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
-      </td>
-      <!-- Comment -->
-      <td>
-        <label>{{row[1]}}</label>
+      <td width="20%"><b>Authentication Token:</b></td>
+      <td><label class="switch">
+        <input id="chbox_token" type="checkbox" onClick="server.enable_token()" {{'checked="checked"' if isToken == 'true' else ""}} >
+        <span class="slider round"></span> </label>
       </td>
     </tr>
-    % end
   </table>
+
+  % if isToken == 'true':
+  <p>&nbsp;</p>
+
+  <label><b>Main Token for playlist/streams:</b></label>
+  <form class="form-inline" >
+    <input id="main_token" class="form-control" size="100%" value="{{main_token}}" onchange="server.set_main_token()">
+  </form>
+  
+  <p>&nbsp;</p>
+  % end
 
   <!-- Periodic reload settings -->
 

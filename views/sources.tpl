@@ -466,16 +466,26 @@
 
     <tr>
       <th width="5%" >Name</th>
+      <th width="10%" >Playlist URL</th>
       <th width="10%" >Comment</th>
     </tr>
 
-    <!-- usr_profiles [ 0-usrName, 1-usrText ] -->
+    <!-- usr_profiles [ 0-usrName, 1-usrText, 2-usrIP, 3-usrToken ] -->
     % for row in in_users:
     <tr>
       <!-- Name -->
       <td>
-        <a href="/profile/{{row[0]}}">{{row[0]}}    </a>
+        <a href="/profile/{{row[0]}}">{{row[0]}}</a>
+        <button class="btn" onClick="server.edit_user('{{row[0]}}')" ><i class="fa fa-wrench" style="font-size:26px;color:blue" ></i></button>
         <button class="btn" onClick="delProfile('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
+      </td>
+      <!-- Playlist -->
+      <td>
+        % if is_token == 'true':
+          <a href="http://{{row[2]}}:{{PORT}}/{{row[3]}}/playlist/{{row[0]}}">http://{{row[2]}}:{{PORT}}/{{row[3]}}/playlist/{{row[0]}}</a>
+        % else:
+          <a href="http://{{row[2]}}:{{PORT}}/playlist/{{row[0]}}">http://{{row[2]}}:{{PORT}}/playlist/{{row[0]}}</a>
+        % end
       </td>
       <!-- Comment -->
       <td>
