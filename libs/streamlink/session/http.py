@@ -94,7 +94,7 @@ class HTTPSession(Session):
         super().__init__()
 
         self.headers["User-Agent"] = useragents.FIREFOX
-        self.timeout = 20.0
+        self.timeout = (20.0,20.0)
 
         self.mount("file://", FileAdapter())
 
@@ -175,6 +175,7 @@ class HTTPSession(Session):
             params.update(session.params)
 
         while True:
+            #log.debug(f"* Request: timeout {timeout} - {url[:180]}")
             try:
                 res = super().request(
                     method,

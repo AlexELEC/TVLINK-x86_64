@@ -1,3 +1,4 @@
+import argparse
 from typing import (
     Any,
     Callable,
@@ -5,10 +6,10 @@ from typing import (
     Dict,
     Iterable,
     Iterator,
+    List,
     Literal,
     Mapping,
     Optional,
-    Sequence,
     Tuple,
     TypeVar,
     Union,
@@ -131,10 +132,10 @@ class Argument:
         choices: Optional[_TChoices] = None,
         required: bool = False,
         help: Optional[str] = None,  # noqa: A002
-        metavar: Optional[Union[str, Sequence[str]]] = None,
+        metavar: Optional[Union[str, List[str], Tuple[str, ...]]] = None,
         dest: Optional[str] = None,
         # additional `Argument()` keywords
-        requires: Optional[Union[str, Sequence[str]]] = None,
+        requires: Optional[Union[str, List[str], Tuple[str, ...]]] = None,
         prompt: Optional[str] = None,
         sensitive: bool = False,
         argument_name: Optional[str] = None,
@@ -175,7 +176,8 @@ class Argument:
         self.type = type
         self.choices: Optional[Tuple[Any, ...]] = tuple(choices) if choices else None
         self.required = required
-        self.help = help
+        # argparse compares the object identity of argparse.SUPPRESS
+        self.help = argparse.SUPPRESS if help == argparse.SUPPRESS else help
         self.metavar: Optional[Union[str, Tuple[str, ...]]] = (
             tuple(metavar)
             if metavar is not None and not isinstance(metavar, str)

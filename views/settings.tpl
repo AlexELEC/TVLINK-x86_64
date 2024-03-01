@@ -307,13 +307,17 @@
   </form>
   <p>&nbsp;</p>
 
+  <!-- Timeouts List -->
+  % val_times = range(1,121)
+  <!-- Segment threshold, retry, threads, hls_live List -->
+  % val_count = range(1,11)
+
   <div style="overflow:hidden;_zoom:1">
 
     <table class="table" border="2" style="float:left;width:49%;display:block" >
 
       {{!tbl_head}}
       % buf_values = [5,10,20,30,40,50,80,100,150,200]
-      % strm_values = [3,5,7,10,12,15,18,20,22,25,28,30,32,35,38,40,44,48,50,54,58,60,64,68,70,75,80,90,100,120]
       % chunk_values = [8192, 16384, 24576, 32768, 65536]
 
       <!-- Ring Buffer -->
@@ -342,30 +346,57 @@
           </select>
         </td>
       </tr>
-      <!-- HTTP Timeout -->
+      <!-- Threads Job Timeout (stream-timeout) -->
       <tr>
         <td>
-          <label class="form-control">General HTTP timeout (sec)</label>
+          <label class="form-control">Threads job timeout (sec)</label>
         </td>
         <td>
-          <select id="http_timeout" class="form-control" onchange="server.setting_options('http_timeout')" >
-            % for ht_tout in range(1,121):
-            <option {{'selected' if ht_tout == int(http_timeout) else ""}} >{{ht_tout}}</option>
+          <select id="stream_timeout" class="form-control" onchange="server.setting_options('stream_timeout')" >
+            % for ht_tout in val_times:
+            <option {{'selected' if ht_tout == int(stream_timeout) else ""}} >{{ht_tout}}</option>
             % end
           </select>
         </td>
       </tr>
-      <!-- Stream Timeout -->
+      <!-- HTTP Timeout -->
       <tr>
         <td>
-          <label class="form-control">Stream timeout (sec)</label>
+          <label class="form-control">General HTTP timeout Connect/Data (sec)</label>
+        </td>
+        <td >
+          <div style="display:flex;">
+            <select id="http_timeout_connect" class="form-control" onchange="server.setting_options('http_timeout_connect') " >
+                % for ht_tout in val_times:
+                <option {{'selected' if ht_tout == int(http_timeout_connect) else ""}} >{{ht_tout}}</option>
+                % end
+            </select>
+            <select id="http_timeout_data" class="form-control" onchange="server.setting_options('http_timeout_data')" >
+                % for ht_tout in val_times:
+                <option {{'selected' if ht_tout == int(http_timeout_data) else ""}} >{{ht_tout}}</option>
+                % end
+            </select>
+          </div>
+        </td>
+      </tr>
+      <!-- Segment Timeout -->
+      <tr>
+        <td>
+          <label class="form-control">HLS segment timeout Connect/Data (sec)</label>
         </td>
         <td>
-          <select id="stream_timeout" class="form-control" onchange="server.setting_options('stream_timeout')" >
-            % for ht_tout in strm_values:
-            <option {{'selected' if ht_tout == int(stream_timeout) else ""}} >{{ht_tout}}</option>
-            % end
-          </select>
+          <div style="display:flex;">
+            <select id="segment_timeout_connect" class="form-control" onchange="server.setting_options('segment_timeout_connect')" >
+                % for ht_tout in val_times:
+                <option {{'selected' if ht_tout == int(segment_timeout_connect) else ""}} >{{ht_tout}}</option>
+                % end
+            </select>
+            <select id="segment_timeout_data" class="form-control" onchange="server.setting_options('segment_timeout_data')" >
+                % for ht_tout in val_times:
+                <option {{'selected' if ht_tout == int(segment_timeout_data) else ""}} >{{ht_tout}}</option>
+                % end
+            </select>
+          </div>
         </td>
       </tr>
       <!-- HLS segment queue threshold -->
@@ -375,21 +406,8 @@
         </td>
         <td>
           <select id="hls_threshold" class="form-control" onchange="server.setting_options('hls_threshold')" >
-            % for ht_tout in range(1,11):
+            % for ht_tout in val_count:
             <option {{'selected' if ht_tout == int(hls_threshold) else ""}} >{{ht_tout}}</option>
-            % end
-          </select>
-        </td>
-      </tr>
-      <!-- Segment Timeout -->
-      <tr>
-        <td>
-          <label class="form-control">Segment timeout (sec)</label>
-        </td>
-        <td>
-          <select id="segment_timeout" class="form-control" onchange="server.setting_options('segment_timeout')" >
-            % for ht_tout in strm_values:
-            <option {{'selected' if ht_tout == int(segment_timeout) else ""}} >{{ht_tout}}</option>
             % end
           </select>
         </td>
@@ -401,7 +419,7 @@
         </td>
         <td>
           <select id="stream_retry" class="form-control" onchange="server.setting_options('stream_retry')" >
-            % for hl_tout in range(1,11):
+            % for hl_tout in val_count:
             <option {{'selected' if hl_tout == int(stream_retry) else ""}} >{{hl_tout}}</option>
             % end
           </select>
@@ -421,7 +439,7 @@
         </td>
         <td>
           <select id="stream_segment_threads" class="form-control" onchange="server.setting_options('stream_segment_threads')" >
-            % for thrd in range(1,11):
+            % for thrd in val_count:
             <option {{'selected' if thrd == int(stream_segment_threads) else ""}} >{{thrd}}</option>
             % end
           </select>
@@ -447,7 +465,7 @@
         </td>
         <td>
           <select id="hls_live_edge" class="form-control" onchange="server.setting_options('hls_live_edge')" >
-            % for edge in range(1,11):
+            % for edge in val_count:
             <option {{'selected' if edge == int(hls_live_edge) else ""}} >{{edge}}</option>
             % end
           </select>

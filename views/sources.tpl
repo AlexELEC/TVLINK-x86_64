@@ -13,6 +13,7 @@
   <script>
     function modalClose(winID) {
         document.getElementById(winID).style.display = "none";
+        location.reload(true);
     }
     function delSource(m3uName) {
         if (confirm(m3uName + ": delete this source?")) {
@@ -70,6 +71,11 @@
   <p>&nbsp;</p>
   % end
 
+  <!-- Prio  -->
+  % val_prio = range(1,51)
+  <!-- Update period  -->
+  % val_update = range(0,97)
+
   <table class="table" width="100%" border="2" id="m3u_table" style={{"display:block" if checked_m3u == 1 and is_m3u else "display:none"}} >
 
     <tr>
@@ -90,15 +96,16 @@
     % if row[2] == 'Playlists':
     <tr>
       <!-- Name -->
-      % ids = 'hrf_' + row[0]
-      % shortName = row[0].replace("m3u_", "")
+      % srcName = row[0]
+      % ids = f'hrf_{srcName}'
+      % shortName = srcName.replace("m3u_", "")
         <td>
-          <a id={{ids}} {{'href=/inputs/'+row[0] if row[1] == 1 and row[8] > 0 else ""}} >{{shortName}}</a>
-          <button class="btn" onClick="server.show_src_conf('{{row[0]}}')" ><i class="fa fa-wrench" style="font-size:26px;color:blue" ></i></button>
-          <button class="btn" onClick="delSource('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
+          <a id={{ids}} {{f'href=/inputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{shortName}}</a>
+          <button class="btn" onClick="server.show_src_conf('{{srcName}}')" ><i class="fa fa-wrench" style="font-size:26px;color:{{options_dist[srcName]}}" ></i></button>
+          <button class="btn" onClick="delSource('{{srcName}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
       <!-- Catchup -->
-      % ids = 'arg_' + row[0]
+      % ids = f'arg_{srcName}'
       <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
         % for cath in ['none', 'append', 'flussonic', 'shift']:
           <option {{'selected' if cath == row[4] else ""}} >{{cath}}</option>
@@ -107,52 +114,52 @@
       </td>
       <!-- Enable -->
       <td><label class="switch">
-        % ids = 'src_' + row[0]
+        % ids = f'src_{srcName}'
         <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[1] == 1 else ""}} >
         <span class="slider round"></span></label>
       </td>
       <!-- Prio -->
-      % ids = 'pri_' + row[0]
+      % ids = f'pri_{srcName}'
       <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
-        % for prio in range(1,31):
+        % for prio in val_prio:
           <option {{'selected' if prio == row[3] else ""}} >{{prio}}</option>
         % end
         </select>
       </td>
       <!-- Max streams Limit -->
-      % ids = 'mst_' + row[0]
+      % ids = f'mst_{srcName}'
       <td>
         <input id={{ids}} type="number" step="1" min="0" max="10" class="form-control" value="{{row[11]}}" onchange="server.change_select('{{ids}}')" >
       </td>
       <!-- Add channels -->
       <td><label class="switch">
-        % ids = 'ach_' + row[0]
+        % ids = f'ach_{srcName}'
         <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[5] == 1 else ""}} >
         <span class="slider round"></span></label>
       </td>
       <!-- New channels -->
       <td><label class="switch">
-        % ids = 'new_' + row[0]
+        % ids = f'new_{srcName}'
         <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[10] == 1 else ""}} >
         <span class="slider round"></span></label>
       </td>
       <!-- Update period -->
-      % ids = 'upr_' + row[0]
+      % ids = f'upr_{srcName}'
       <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
-        % for prio in range(0,73):
+        % for prio in val_update:
           <option {{'selected' if prio == row[6] else ""}} >{{prio}}</option>
         % end
         </select>
       </td>
       <!-- Update -->
-      % ids_bt = 'ubt_' + row[0]
-      % ids_lb = 'ulb_' + row[0]
+      % ids_bt = f'ubt_{srcName}'
+      % ids_lb = f'ulb_{srcName}'
       <td>
         <button class="btn" onClick="server.upd_src_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh"></i></button>
         <label id={{ids_lb}} >{{row[7]}}</label>
       </td>
       <!-- Links -->
-      % ids = 'lks_' + row[0]
+      % ids = f'lks_{srcName}'
       <td>
         <label id={{ids}} >{{row[8]}}</label>
       </td>
@@ -210,60 +217,61 @@
     % if row[2] == 'Addons':
     <tr>
       <!-- Name -->
-      % ids = 'hrf_' + row[0]
+      % srcName = row[0]
+      % ids = f'hrf_{srcName}'
         <td>
-          <a id={{ids}} {{'href=/inputs/'+row[0] if row[1] == 1 and row[8] > 0 else ""}} >{{row[0]}}</a>
-          <button class="btn" onClick="server.show_src_conf('{{row[0]}}')" ><i class="fa fa-wrench" style="font-size:26px;color:blue" ></i></button>
-          <button class="btn" onClick="delAddon('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
+          <a id={{ids}} {{f'href=/inputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
+          <button class="btn" onClick="server.show_src_conf('{{srcName}}')" ><i class="fa fa-wrench" style="font-size:26px;color:{{options_dist[srcName]}}" ></i></button>
+          <button class="btn" onClick="delAddon('{{srcName}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
       <!-- Enable -->
       <td><label class="switch">
-        % ids = 'src_' + row[0]
+        % ids = f'src_{srcName}'
         <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[1] == 1 else ""}} >
         <span class="slider round"></span></label>
       </td>
       <!-- Prio -->
-      % ids = 'pri_' + row[0]
+      % ids = f'pri_{srcName}'
       <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
-        % for prio in range(1,31):
+        % for prio in val_prio:
           <option {{'selected' if prio == row[3] else ""}} >{{prio}}</option>
         % end
         </select>
       </td>
       <!-- Max streams Limit -->
-      % ids = 'mst_' + row[0]
+      % ids = f'mst_{srcName}'
       <td>
         <input id={{ids}} type="number" step="1" min="0" max="10" class="form-control" value="{{row[11]}}" onchange="server.change_select('{{ids}}')" >
       </td>
       <!-- Add channels -->
       <td><label class="switch">
-        % ids = 'ach_' + row[0]
+        % ids = f'ach_{srcName}'
         <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[5] == 1 else ""}} >
         <span class="slider round"></span></label>
       </td>
       <!-- New channels -->
       <td><label class="switch">
-        % ids = 'new_' + row[0]
+        % ids = f'new_{srcName}'
         <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[10] == 1 else ""}} >
         <span class="slider round"></span></label>
       </td>
       <!-- Update period -->
-      % ids = 'upr_' + row[0]
+      % ids = f'upr_{srcName}'
       <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
-        % for prio in range(0,73):
+        % for prio in val_update:
           <option {{'selected' if prio == row[6] else ""}} >{{prio}}</option>
         % end
         </select>
       </td>
       <!-- Update -->
-      % ids_bt = 'ubt_' + row[0]
-      % ids_lb = 'ulb_' + row[0]
+      % ids_bt = f'ubt_{srcName}'
+      % ids_lb = f'ulb_{srcName}'
       <td>
         <button class="btn" onClick="server.upd_src_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh"></i></button>
         <label id={{ids_lb}} >{{row[7]}}</label>
       </td>
       <!-- Links -->
-      % ids = 'lks_' + row[0]
+      % ids = f'lks_{srcName}'
       <td>
         <label id={{ids}} >{{row[8]}}</label>
       </td>
@@ -317,39 +325,40 @@
     % if row[2] == 'Static':
     <tr>
       <!-- Name -->
-      % ids = 'hrf_' + row[0]
+      % srcName = row[0]
+      % ids = f'hrf_{srcName}'
       <td>
-        <a id={{ids}} {{'href=/epginputs/'+row[0] if row[1] == 1 and row[8] > 0 else ""}} >{{row[0]}}</a>
-        <button class="btn" onClick="server.show_edit_epg_url('{{row[0]}}')" ><i class="fa fa-pencil-square-o" style="font-size:26px;color:blue" ></i></button>
+        <a id={{ids}} {{f'href=/epginputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
+        <button class="btn" onClick="server.show_edit_epg_url('{{srcName}}')" ><i class="fa fa-pencil-square-o" style="font-size:26px;color:blue" ></i></button>
       </td>
       <!-- Enable -->
       <td><label class="switch">
-        % ids = 'src_' + row[0]
+        % ids = f'src_{srcName}'
         <input id={{ids}} type="checkbox" onClick="server.click_switch_epg('{{ids}}')" {{'checked="checked"' if row[1] == 1 else ""}} >
         <span class="slider round"></span></label>
       </td>
       <!-- Prio -->
-      % ids = 'pri_' + row[0]
+      % ids = f'pri_{srcName}'
       <td><select id={{ids}} class="form-control" onchange="server.change_select_epg('{{ids}}')" >
-        % for prio in range(1,21):
+        % for prio in val_prio:
           <option {{'selected' if prio == row[3] else ""}} >{{prio}}</option>
         % end
         </select>
       </td>
       <!-- XMLTV file Date -->
-      % ids = 'fdt_' + row[0]
+      % ids = f'fdt_{srcName}'
       <td>
         <label id={{ids}} >{{row[4]}}</label>
       </td>
       <!-- Update -->
-      % ids_bt = 'ubt_' + row[0]
-      % ids_lb = 'ulb_' + row[0]
+      % ids_bt = f'ubt_{srcName}'
+      % ids_lb = f'ulb_{srcName}'
       <td>
         <button class="btn" onClick="server.upd_epgsrc_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh"></i></button>
         <label id={{ids_lb}} >{{row[5]}}</label>
       </td>
       <!-- Channels in EPG -->
-      % ids = 'lks_' + row[0]
+      % ids = f'lks_{srcName}'
       <td>
         <label id={{ids}} >{{row[8]}}</label>
       </td>
@@ -394,40 +403,41 @@
     % if row[2] == 'User':
     <tr>
       <!-- Name -->
-      % ids = 'hrf_' + row[0]
+      % srcName = row[0]
+      % ids = f'hrf_{srcName}'
       <td>
-        <a id={{ids}} {{'href=/epginputs/'+row[0] if row[1] == 1 and row[8] > 0 else ""}} >{{row[0]}}</a>
-        <button class="btn" onClick="server.show_epg_info('{{row[0]}}')" ><i class="fa fa-info-circle" style="font-size:26px;color:blue" ></i></button>
-        <button class="btn" onClick="delEpgSource('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
+        <a id={{ids}} {{f'href=/epginputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
+        <button class="btn" onClick="server.show_epg_info('{{srcName}}')" ><i class="fa fa-info-circle" style="font-size:26px;color:blue" ></i></button>
+        <button class="btn" onClick="delEpgSource('{{srcName}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
       </td>
       <!-- Enable -->
       <td><label class="switch">
-        % ids = 'src_' + row[0]
+        % ids = f'src_{srcName}'
         <input id={{ids}} type="checkbox" onClick="server.click_switch_epg('{{ids}}')" {{'checked="checked"' if row[1] == 1 else ""}} >
         <span class="slider round"></span></label>
       </td>
       <!-- Prio -->
-      % ids = 'pri_' + row[0]
+      % ids = f'pri_{srcName}'
       <td><select id={{ids}} class="form-control" onchange="server.change_select_epg('{{ids}}')" >
-        % for prio in range(1,21):
+        % for prio in val_prio:
           <option {{'selected' if prio == row[3] else ""}} >{{prio}}</option>
         % end
         </select>
       </td>
       <!-- XMLTV file Date -->
-      % ids = 'fdt_' + row[0]
+      % ids = f'fdt_{srcName}'
       <td>
         <label id={{ids}} >{{row[4]}}</label>
       </td>
       <!-- Update -->
-      % ids_bt = 'ubt_' + row[0]
-      % ids_lb = 'ulb_' + row[0]
+      % ids_bt = f'ubt_{srcName}'
+      % ids_lb = f'ulb_{srcName}'
       <td>
         <button class="btn" onClick="server.upd_epgsrc_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh"></i></button>
         <label id={{ids_lb}} >{{row[5]}}</label>
       </td>
       <!-- Channels in EPG -->
-      % ids = 'lks_' + row[0]
+      % ids = f'lks_{srcName}'
       <td>
         <label id={{ids}} >{{row[8]}}</label>
       </td>
@@ -474,22 +484,27 @@
     % for row in in_users:
     <tr>
       <!-- Name -->
+      % usrName = row[0]
+      % usrText = row[1]
+      % usrIP = row[2]
+      % usrToken = row[3]
       <td>
-        <a href="/profile/{{row[0]}}">{{row[0]}}</a>
-        <button class="btn" onClick="server.edit_user('{{row[0]}}')" ><i class="fa fa-wrench" style="font-size:26px;color:blue" ></i></button>
-        <button class="btn" onClick="delProfile('{{row[0]}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
+        <a href="/profile/{{usrName}}">{{usrName}}</a>
+        <button class="btn" onClick="server.edit_user('{{usrName}}')" ><i class="fa fa-wrench" style="font-size:26px;color:blue" ></i></button>
+        <button class="btn" onClick="delProfile('{{usrName}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
       </td>
       <!-- Playlist -->
       <td>
         % if is_token == 'true':
-          <a href="http://{{row[2]}}:{{PORT}}/{{row[3]}}/playlist/{{row[0]}}">http://{{row[2]}}:{{PORT}}/{{row[3]}}/playlist/{{row[0]}}</a>
+          % pr_link = f'http://{usrIP}:{PORT}/{usrToken}/playlist/{usrName}'
         % else:
-          <a href="http://{{row[2]}}:{{PORT}}/playlist/{{row[0]}}">http://{{row[2]}}:{{PORT}}/playlist/{{row[0]}}</a>
+          % pr_link = f'http://{usrIP}:{PORT}/playlist/{usrName}'
         % end
+        <a href="{{pr_link}}">{{pr_link}}</a>
       </td>
       <!-- Comment -->
       <td>
-        <label>{{row[1]}}</label>
+        <label>{{usrText}}</label>
       </td>
     </tr>
     % end

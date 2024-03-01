@@ -88,6 +88,12 @@ class SegmentedStreamWriter(AwaitableMixin, Thread, Generic[TSegment, TResult]):
         self._wait.set()
 
         self.reader.close()
+
+        # close all connections
+        while True:
+            try: items = self._queue_get()
+            except: break
+
         self.executor.shutdown(wait=True, cancel_futures=True)
 
     def put(self, segment: Optional[TSegment]) -> None:

@@ -62,21 +62,25 @@ class HTTPStream(Stream):
     def open(self):
         reqargs = self.session.http.valid_request_args(**self.args)
         reqargs.setdefault("method", "GET")
-        timeout = self.session.options.get("stream-timeout")
+        timeout_job = self.session.options.get("stream-timeout")
+        timeout_con = self.session.options.get("http-timeout") or (10,20)
         res = self.session.http.request(
             stream=True,
             exception=StreamError,
-            timeout=timeout,
+            timeout=timeout_con,
             **reqargs,
         )
 
         self.fd = StreamIOIterWrapper(res.iter_content(self.chunk_size))
         if self.buffered:
-            self.fd = StreamIOThreadWrapper(self.session, self.fd, timeout=timeout, chunk_size=self.chunk_size)
+            self.fd = StreamIOThreadWrapper(self.session, self.fd, timeout=timeout_job, chunk_size=self.chunk_size)
 
         return self.fd
 
     def close(self):
-        if self.fd:
-            self.fd.close()
-            self.fd = None
+        if hasattr(self.fd, "close"):
+            try:
+                self.fd.close()
+            except Exception:
+                pass
+        self.fd = None
