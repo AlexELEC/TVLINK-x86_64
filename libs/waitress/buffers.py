@@ -22,8 +22,7 @@ COPY_BYTES = 1 << 18  # 256K
 STRBUF_LIMIT = 8192
 
 
-class FileBasedBuffer(object):
-
+class FileBasedBuffer:
     remain = 0
 
     def __init__(self, file, from_buffer=None):
@@ -44,10 +43,8 @@ class FileBasedBuffer(object):
     def __len__(self):
         return self.remain
 
-    def __nonzero__(self):
+    def __bool__(self):
         return True
-
-    __bool__ = __nonzero__  # py3
 
     def append(self, s):
         file = self.file
@@ -145,6 +142,16 @@ class ReadOnlyFileBasedBuffer(FileBasedBuffer):
         self.file = file
         self.block_size = block_size  # for __iter__
 
+        # This is for the benefit of anyone that is attempting to wrap this
+        # wsgi.file_wrapper in a WSGI middleware and wants to seek, this is
+        # useful for instance for support Range requests
+        if _is_seekable(self.file):
+            if hasattr(self.file, "seekable"):
+                self.seekable = self.file.seekable
+
+            self.seek = self.file.seek
+            self.tell = self.file.tell
+
     def prepare(self, size=None):
         if _is_seekable(self.file):
             start_pos = self.file.tell()
@@ -187,7 +194,7 @@ class ReadOnlyFileBasedBuffer(FileBasedBuffer):
         raise NotImplementedError
 
 
-class OverflowableBuffer(object):
+class OverflowableBuffer:
     """
     This buffer implementation has four stages:
     - No data
@@ -214,12 +221,10 @@ class OverflowableBuffer(object):
         else:
             return self.strbuf.__len__()
 
-    def __nonzero__(self):
+    def __bool__(self):
         # use self.__len__ rather than len(self) FBO of not getting
         # OverflowError on Python 2
         return self.__len__() > 0
-
-    __bool__ = __nonzero__  # py3
 
     def _create_buffer(self):
         strbuf = self.strbuf
@@ -234,11 +239,23 @@ class OverflowableBuffer(object):
         return buf
 
     def _set_small_buffer(self):
-        self.buf = BytesIOBasedBuffer(self.buf)
+        oldbuf = self.buf
+        self.buf = BytesIOBasedBuffer(oldbuf)
+
+        # Attempt to close the old buffer
+        if hasattr(oldbuf, "close"):
+            oldbuf.close()
+
         self.overflowed = False
 
     def _set_large_buffer(self):
-        self.buf = TempfileBasedBuffer(self.buf)
+        oldbuf = self.buf
+        self.buf = TempfileBasedBuffer(oldbuf)
+
+        # Attempt to close the old buffer
+        if hasattr(oldbuf, "close"):
+            oldbuf.close()
+
         self.overflowed = True
 
     def append(self, s):

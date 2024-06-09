@@ -17,13 +17,8 @@ import getopt
 import socket
 import warnings
 
+from .compat import HAS_IPV6, WIN
 from .proxy_headers import PROXY_HEADERS
-from .compat import (
-    PY2,
-    WIN,
-    string_types,
-    HAS_IPV6,
-)
 
 truthy = frozenset(("t", "true", "y", "yes", "on", "1"))
 
@@ -33,7 +28,7 @@ KNOWN_PROXY_HEADERS = frozenset(
 
 
 def asbool(s):
-    """ Return the boolean value ``True`` if the case-lowered value of string
+    """Return the boolean value ``True`` if the case-lowered value of string
     input ``s`` is any of ``t``, ``true``, ``y``, ``on``, or ``1``, otherwise
     return the boolean value ``False``.  If ``s`` is the value ``None``,
     return ``False``.  If ``s`` is already one of the boolean values ``True``
@@ -52,13 +47,13 @@ def asoctal(s):
 
 
 def aslist_cronly(value):
-    if isinstance(value, string_types):
+    if isinstance(value, str):
         value = filter(None, [x.strip() for x in value.splitlines()])
     return list(value)
 
 
 def aslist(value):
-    """ Return a list of strings, separating the input based on newlines
+    """Return a list of strings, separating the input based on newlines
     and, if flatten=True (the default), also split on spaces within
     each line."""
     values = aslist_cronly(value)
@@ -100,13 +95,8 @@ class _int_marker(int):
     pass
 
 
-class _bool_marker(object):
-    pass
-
-
-class Adjustments(object):
-    """This class contains tunable parameters.
-    """
+class Adjustments:
+    """This class contains tunable parameters."""
 
     _params = (
         ("host", str),
@@ -141,6 +131,8 @@ class Adjustments(object):
         ("unix_socket", str),
         ("unix_socket_perms", asoctal),
         ("sockets", as_socket_list),
+        ("channel_request_lookahead", int),
+        ("server_name", str),
     )
 
     _param_map = dict(_params)
@@ -151,7 +143,7 @@ class Adjustments(object):
     # TCP port to listen on
     port = _int_marker(8080)
 
-    listen = ["{}:{}".format(host, port)]
+    listen = [f"{host}:{port}"]
 
     # number of threads available for tasks
     threads = 4
@@ -184,10 +176,8 @@ class Adjustments(object):
     # proxy server to filter invalid headers
     log_untrusted_proxy_headers = False
 
-    # Should waitress clear any proxy headers that are not deemed trusted from
-    # the environ? Change to True by default in 2.x
-    # clear_untrusted_proxy_headers = _bool_marker
-    clear_untrusted_proxy_headers = False
+    # Changed this parameter to True by default in 3.x
+    clear_untrusted_proxy_headers = True
 
     # default ``wsgi.url_scheme`` value
     url_scheme = "http"
@@ -287,8 +277,19 @@ class Adjustments(object):
     # be used for e.g. socket activation
     sockets = []
 
-    def __init__(self, **kw):
+    # By setting this to a value larger than zero, each channel stays readable
+    # and continues to read requests from the client even if a request is still
+    # running, until the number of buffered requests exceeds this value.
+    # This allows detecting if a client closed the connection while its request
+    # is being processed.
+    channel_request_lookahead = 0
 
+    # This setting controls the SERVER_NAME of the WSGI environment, this is
+    # only ever used if the remote client sent a request without a Host header
+    # (or when using the Proxy settings, without forwarding a Host header)
+    server_name = "waitress.invalid"
+
+    def __init__(self, **kw):
         if "listen" in kw and ("host" in kw or "port" in kw):
             raise ValueError("host or port may not be set if listen is set.")
 
@@ -309,7 +310,7 @@ class Adjustments(object):
 
         if "send_bytes" in kw:
             warnings.warn(
-                "send_bytes will be removed in a future release", DeprecationWarning,
+                "send_bytes will be removed in a future release", DeprecationWarning
             )
 
         for k, v in kw.items():
@@ -320,7 +321,7 @@ class Adjustments(object):
         if not isinstance(self.host, _str_marker) or not isinstance(
             self.port, _int_marker
         ):
-            self.listen = ["{}:{}".format(self.host, self.port)]
+            self.listen = [f"{self.host}:{self.port}"]
 
         enabled_families = socket.AF_UNSPEC
 
@@ -347,7 +348,7 @@ class Adjustments(object):
             else:
                 (host, port) = (i, str(self.port))
 
-            if WIN and PY2:  # pragma: no cover
+            if WIN:  # pragma: no cover
                 try:
                     # Try turning the port into an integer
                     port = int(port)
@@ -437,15 +438,6 @@ class Adjustments(object):
                 DeprecationWarning,
             )
             self.trusted_proxy_headers = {"x-forwarded-proto"}
-
-        if self.clear_untrusted_proxy_headers is _bool_marker:
-            warnings.warn(
-                "In future versions of Waitress clear_untrusted_proxy_headers will be "
-                "set to True by default. You may opt-out by setting this value to "
-                "False, or opt-in explicitly by setting this to True.",
-                DeprecationWarning,
-            )
-            self.clear_untrusted_proxy_headers = False
 
         self.listen = wanted_sockets
 

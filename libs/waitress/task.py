@@ -12,14 +12,13 @@
 #
 ##############################################################################
 
+from collections import deque
 import socket
 import sys
 import threading
 import time
-from collections import deque
 
 from .buffers import ReadOnlyFileBasedBuffer
-from .compat import reraise, tobytes
 from .utilities import build_http_date, logger, queue_logger
 
 rename_headers = {  # or keep them without the HTTP_ prefix added
@@ -41,9 +40,8 @@ hop_by_hop = frozenset(
 )
 
 
-class ThreadedTaskDispatcher(object):
-    """A Task Dispatcher that creates a thread for each task.
-    """
+class ThreadedTaskDispatcher:
+    """A Task Dispatcher that creates a thread for each task."""
 
     stop_count = 0  # Number of threads that will stop soon.
     active_count = 0  # Number of currently active threads
@@ -57,8 +55,10 @@ class ThreadedTaskDispatcher(object):
         self.queue_cv = threading.Condition(self.lock)
         self.thread_exit_cv = threading.Condition(self.lock)
 
-    def start_new_thread(self, target, args):
-        t = threading.Thread(target=target, name="waitress", args=args)
+    def start_new_thread(self, target, thread_no):
+        t = threading.Thread(
+            target=target, name=f"waitress-{thread_no}", args=(thread_no,)
+        )
         t.daemon = True
         t.start()
 
@@ -96,7 +96,7 @@ class ThreadedTaskDispatcher(object):
                     thread_no = thread_no + 1
                 threads.add(thread_no)
                 running += 1
-                self.start_new_thread(self.handler_thread, (thread_no,))
+                self.start_new_thread(self.handler_thread, thread_no)
                 self.active_count += 1
                 thread_no = thread_no + 1
             if running > count:
@@ -141,7 +141,7 @@ class ThreadedTaskDispatcher(object):
         return False
 
 
-class Task(object):
+class Task:
     close_on_finish = False
     status = "200 OK"
     wrote_header = False
@@ -166,16 +166,13 @@ class Task(object):
 
     def service(self):
         try:
-            try:
-                self.start()
-                self.execute()
-                self.finish()
-            except socket.error:
-                self.close_on_finish = True
-                if self.channel.adj.log_socket_errors:
-                    raise
-        finally:
-            pass
+            self.start()
+            self.execute()
+            self.finish()
+        except OSError:
+            self.close_on_finish = True
+            if self.channel.adj.log_socket_errors:
+                raise
 
     @property
     def has_body(self):
@@ -185,6 +182,18 @@ class Task(object):
             or self.status.startswith("304")
         )
 
+    def set_close_on_finish(self) -> None:
+        # if headers have not been written yet, tell the remote
+        # client we are closing the connection
+        if not self.wrote_header:
+            connection_close_header = None
+            for headername, headerval in self.response_headers:
+                if headername.capitalize() == "Connection":
+                    connection_close_header = headerval.lower()
+            if connection_close_header is None:
+                self.response_headers.append(("Connection", "close"))
+        self.close_on_finish = True
+
     def build_response_header(self):
         version = self.version
         # Figure out whether the connection should be closed.
@@ -193,9 +202,8 @@ class Task(object):
         content_length_header = None
         date_header = None
         server_header = None
-        connection_close_header = None
 
-        for (headername, headerval) in self.response_headers:
+        for headername, headerval in self.response_headers:
             headername = "-".join([x.capitalize() for x in headername.split("-")])
 
             if headername == "Content-Length":
@@ -210,10 +218,11 @@ class Task(object):
             if headername == "Server":
                 server_header = headerval
 
-            if headername == "Connection":
-                connection_close_header = headerval.lower()
             # replace with properly capitalized version
             response_headers.append((headername, headerval))
+
+        # Overwrite the response headers we have with normalized ones
+        self.response_headers = response_headers
 
         if (
             content_length_header is None
@@ -221,36 +230,31 @@ class Task(object):
             and self.has_body
         ):
             content_length_header = str(self.content_length)
-            response_headers.append(("Content-Length", content_length_header))
-
-        def close_on_finish():
-            if connection_close_header is None:
-                response_headers.append(("Connection", "close"))
-            self.close_on_finish = True
+            self.response_headers.append(("Content-Length", content_length_header))
 
         if version == "1.0":
             if connection == "keep-alive":
                 if not content_length_header:
-                    close_on_finish()
+                    self.set_close_on_finish()
                 else:
-                    response_headers.append(("Connection", "Keep-Alive"))
+                    self.response_headers.append(("Connection", "Keep-Alive"))
             else:
-                close_on_finish()
+                self.set_close_on_finish()
 
         elif version == "1.1":
             if connection == "close":
-                close_on_finish()
+                self.set_close_on_finish()
 
             if not content_length_header:
                 # RFC 7230: MUST NOT send Transfer-Encoding or Content-Length
                 # for any response with a status code of 1xx, 204 or 304.
 
                 if self.has_body:
-                    response_headers.append(("Transfer-Encoding", "chunked"))
+                    self.response_headers.append(("Transfer-Encoding", "chunked"))
                     self.chunked_response = True
 
                 if not self.close_on_finish:
-                    close_on_finish()
+                    self.set_close_on_finish()
 
             # under HTTP 1.1 keep-alive is default, no need to set the header
         else:
@@ -262,16 +266,14 @@ class Task(object):
 
         if not server_header:
             if ident:
-                response_headers.append(("Server", ident))
+                self.response_headers.append(("Server", ident))
         else:
-            response_headers.append(("Via", ident or "waitress"))
+            self.response_headers.append(("Via", ident or "waitress"))
 
         if not date_header:
-            response_headers.append(("Date", build_http_date(self.start_time)))
+            self.response_headers.append(("Date", build_http_date(self.start_time)))
 
-        self.response_headers = response_headers
-
-        first_line = "HTTP/%s %s" % (self.version, self.status)
+        first_line = f"HTTP/{self.version} {self.status}"
         # NB: sorting headers needs to preserve same-named-header order
         # as per RFC 2616 section 4.2; thus the key=lambda x: x[0] here;
         # rely on stable sort to keep relative position of same-named headers
@@ -281,7 +283,7 @@ class Task(object):
         lines = [first_line] + next_lines
         res = "%s\r\n\r\n" % "\r\n".join(lines)
 
-        return tobytes(res)
+        return res.encode("latin-1")
 
     def remove_content_length_header(self):
         response_headers = []
@@ -317,7 +319,7 @@ class Task(object):
             cl = self.content_length
             if self.chunked_response:
                 # use chunked encoding response
-                towrite = tobytes(hex(len(data))[2:].upper()) + b"\r\n"
+                towrite = hex(len(data))[2:].upper().encode("latin-1") + b"\r\n"
                 towrite += data + b"\r\n"
             elif cl is not None:
                 towrite = data[: cl - self.content_bytes_written]
@@ -345,28 +347,23 @@ class Task(object):
 
 
 class ErrorTask(Task):
-    """ An error task produces an error response
-    """
+    """An error task produces an error response"""
 
     complete = True
 
     def execute(self):
+        ident = self.channel.server.adj.ident
         e = self.request.error
-        status, headers, body = e.to_response()
+        status, headers, body = e.to_response(ident)
         self.status = status
         self.response_headers.extend(headers)
-        # We need to explicitly tell the remote client we are closing the
-        # connection, because self.close_on_finish is set, and we are going to
-        # slam the door in the clients face.
-        self.response_headers.append(("Connection", "close"))
-        self.close_on_finish = True
+        self.set_close_on_finish()
         self.content_length = len(body)
-        self.write(tobytes(body))
+        self.write(body)
 
 
 class WSGITask(Task):
-    """A WSGI task produces a response from a WSGI application.
-    """
+    """A WSGI task produces a response from a WSGI application."""
 
     environ = None
 
@@ -385,7 +382,7 @@ class WSGITask(Task):
                         # 1. "service" method in task.py
                         # 2. "service" method in channel.py
                         # 3. "handler_thread" method in task.py
-                        reraise(exc_info[0], exc_info[1], exc_info[2])
+                        raise exc_info[1]
                     else:
                         # As per WSGI spec existing headers must be cleared
                         self.response_headers = []
@@ -394,7 +391,7 @@ class WSGITask(Task):
 
             self.complete = True
 
-            if not status.__class__ is str:
+            if status.__class__ is not str:
                 raise AssertionError("status %s is not a string" % status)
             if "\n" in status or "\r" in status:
                 raise ValueError(
@@ -405,13 +402,13 @@ class WSGITask(Task):
 
             # Prepare the headers for output
             for k, v in headers:
-                if not k.__class__ is str:
+                if k.__class__ is not str:
                     raise AssertionError(
-                        "Header name %r is not a string in %r" % (k, (k, v))
+                        f"Header name {k!r} is not a string in {(k, v)!r}"
                     )
-                if not v.__class__ is str:
+                if v.__class__ is not str:
                     raise AssertionError(
-                        "Header value %r is not a string in %r" % (v, (k, v))
+                        f"Header value {v!r} is not a string in {(k, v)!r}"
                     )
 
                 if "\n" in v or "\r" in v:
@@ -480,16 +477,17 @@ class WSGITask(Task):
 
             cl = self.content_length
             if cl is not None:
-                if self.content_bytes_written != cl:
+                if self.content_bytes_written != cl and self.request.command != "HEAD":
                     # close the connection so the client isn't sitting around
                     # waiting for more data when there are too few bytes
                     # to service content-length
-                    self.close_on_finish = True
+                    self.set_close_on_finish()
                     if self.request.command != "HEAD":
                         self.logger.warning(
                             "application returned too few bytes (%s) "
-                            "for specified Content-Length (%s) via app_iter"
-                            % (self.content_bytes_written, cl),
+                            "for specified Content-Length (%s) via app_iter",
+                            self.content_bytes_written,
+                            cl,
                         )
         finally:
             if can_close_app_iter and hasattr(app_iter, "close"):
@@ -545,6 +543,7 @@ class WSGITask(Task):
             "SERVER_PROTOCOL": "HTTP/%s" % self.version,
             "SCRIPT_NAME": url_prefix,
             "PATH_INFO": path,
+            "REQUEST_URI": request.request_uri,
             "QUERY_STRING": request.query,
             "wsgi.url_scheme": request.url_scheme,
             # the following environment variables are required by the WSGI spec
@@ -560,12 +559,16 @@ class WSGITask(Task):
         }
 
         for key, value in dict(request.headers).items():
-            value = value.strip()
             mykey = rename_headers.get(key, None)
             if mykey is None:
                 mykey = "HTTP_" + key
             if mykey not in environ:
                 environ[mykey] = value
+
+        # Insert a callable into the environment that allows the application to
+        # check if the client disconnected. Only works with
+        # channel_request_lookahead larger than 0.
+        environ["waitress.client_disconnected"] = self.channel.check_client_disconnected
 
         # cache the environ for this request
         self.environ = environ

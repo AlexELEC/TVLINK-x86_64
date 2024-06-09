@@ -12,9 +12,9 @@
 #
 ##############################################################################
 
+import errno
 import os
 import socket
-import errno
 import threading
 
 from . import wasyncore
@@ -50,7 +50,7 @@ from . import wasyncore
 # the main thread is trying to remove some]
 
 
-class _triggerbase(object):
+class _triggerbase:
     """OS-independent base class for OS-dependent trigger class."""
 
     kind = None  # subclass must set to "pipe" or "loopback"; used by repr
@@ -98,7 +98,7 @@ class _triggerbase(object):
     def handle_read(self):
         try:
             self.recv(8192)
-        except (OSError, socket.error):
+        except OSError:
             return
         with self.lock:
             for thunk in self.thunks:
@@ -106,9 +106,7 @@ class _triggerbase(object):
                     thunk()
                 except:
                     nil, t, v, tbinfo = wasyncore.compact_traceback()
-                    self.log_info(
-                        "exception in trigger thunk: (%s:%s %s)" % (t, v, tbinfo)
-                    )
+                    self.log_info(f"exception in trigger thunk: ({t}:{v} {tbinfo})")
             self.thunks = []
 
 
@@ -130,7 +128,6 @@ if os.name == "posix":
 
         def _physical_pull(self):
             os.write(self.trigger, b"x")
-
 
 else:  # pragma: no cover
     # Windows version; uses just sockets, because a pipe isn't select'able
@@ -173,8 +170,8 @@ else:  # pragma: no cover
                 try:
                     w.connect(connect_address)
                     break  # success
-                except socket.error as detail:
-                    if detail[0] != errno.WSAEADDRINUSE:
+                except OSError as detail:
+                    if getattr(detail, "winerror", None) != errno.WSAEADDRINUSE:
                         # "Address already in use" is the only error
                         # I've seen on two WinXP Pro SP2 boxes, under
                         # Pythons 2.3.5 and 2.4.1.

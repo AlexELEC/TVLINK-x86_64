@@ -51,33 +51,31 @@ in the stdlib will be dropped soon.  It is neither a copy of the 2.7 asyncore
 nor the 3.X asyncore; it is a version compatible with either 2.7 or 3.X.
 """
 
-from . import compat
-from . import utilities
-
+from errno import (
+    EAGAIN,
+    EALREADY,
+    EBADF,
+    ECONNABORTED,
+    ECONNRESET,
+    EINPROGRESS,
+    EINTR,
+    EINVAL,
+    EISCONN,
+    ENOTCONN,
+    EPIPE,
+    ESHUTDOWN,
+    EWOULDBLOCK,
+    errorcode,
+)
 import logging
+import os
 import select
 import socket
 import sys
 import time
 import warnings
 
-import os
-from errno import (
-    EALREADY,
-    EINPROGRESS,
-    EWOULDBLOCK,
-    ECONNRESET,
-    EINVAL,
-    ENOTCONN,
-    ESHUTDOWN,
-    EISCONN,
-    EBADF,
-    ECONNABORTED,
-    EPIPE,
-    EAGAIN,
-    EINTR,
-    errorcode,
-)
+from . import compat, utilities
 
 _DISCONNECTED = frozenset({ECONNRESET, ENOTCONN, ESHUTDOWN, ECONNABORTED, EPIPE, EBADF})
 
@@ -138,7 +136,7 @@ def readwrite(obj, flags):
             obj.handle_expt_event()
         if flags & (select.POLLHUP | select.POLLERR | select.POLLNVAL):
             obj.handle_close()
-    except socket.error as e:
+    except OSError as e:
         if e.args[0] not in _DISCONNECTED:
             obj.handle_error()
         else:
@@ -172,7 +170,7 @@ def poll(timeout=0.0, map=None):
 
         try:
             r, w, e = select.select(r, w, e, timeout)
-        except select.error as err:
+        except OSError as err:
             if err.args[0] != EINTR:
                 raise
             else:
@@ -218,7 +216,7 @@ def poll2(timeout=0.0, map=None):
 
         try:
             r = pollster.poll(timeout)
-        except select.error as err:
+        except OSError as err:
             if err.args[0] != EINTR:
                 raise
             r = []
@@ -276,7 +274,6 @@ def compact_traceback():
 
 
 class dispatcher:
-
     debug = False
     connected = False
     accepting = False
@@ -305,7 +302,7 @@ class dispatcher:
             # passed be connected.
             try:
                 self.addr = sock.getpeername()
-            except socket.error as err:
+            except OSError as err:
                 if err.args[0] in (ENOTCONN, EINVAL):
                     # To handle the case where we got an unconnected
                     # socket.
@@ -320,7 +317,7 @@ class dispatcher:
             self.socket = None
 
     def __repr__(self):
-        status = [self.__class__.__module__ + "." + compat.qualname(self.__class__)]
+        status = [self.__class__.__module__ + "." + self.__class__.__qualname__]
         if self.accepting and self.addr:
             status.append("listening")
         elif self.connected:
@@ -330,7 +327,7 @@ class dispatcher:
                 status.append("%s:%d" % self.addr)
             except TypeError:  # pragma: no cover
                 status.append(repr(self.addr))
-        return "<%s at %#x>" % (" ".join(status), id(self))
+        return "<{} at {:#x}>".format(" ".join(status), id(self))
 
     __str__ = __repr__
 
@@ -368,7 +365,7 @@ class dispatcher:
                 socket.SO_REUSEADDR,
                 self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR) | 1,
             )
-        except socket.error:
+        except OSError:
             pass
 
     # ==================================================
@@ -412,7 +409,7 @@ class dispatcher:
             self.addr = address
             self.handle_connect_event()
         else:
-            raise socket.error(err, errorcode[err])
+            raise OSError(err, errorcode[err])
 
     def accept(self):
         # XXX can return either an address pair or None
@@ -420,7 +417,7 @@ class dispatcher:
             conn, addr = self.socket.accept()
         except TypeError:
             return None
-        except socket.error as why:
+        except OSError as why:
             if why.args[0] in (EWOULDBLOCK, ECONNABORTED, EAGAIN):
                 return None
             else:
@@ -428,15 +425,16 @@ class dispatcher:
         else:
             return conn, addr
 
-    def send(self, data):
+    def send(self, data, do_close=True):
         try:
             result = self.socket.send(data)
             return result
-        except socket.error as why:
+        except OSError as why:
             if why.args[0] == EWOULDBLOCK:
                 return 0
             elif why.args[0] in _DISCONNECTED:
-                self.handle_close()
+                if do_close:
+                    self.handle_close()
                 return 0
             else:
                 raise
@@ -451,7 +449,7 @@ class dispatcher:
                 return b""
             else:
                 return data
-        except socket.error as why:
+        except OSError as why:
             # winsock sometimes raises ENOTCONN
             if why.args[0] in _DISCONNECTED:
                 self.handle_close()
@@ -467,7 +465,7 @@ class dispatcher:
         if self.socket is not None:
             try:
                 self.socket.close()
-            except socket.error as why:
+            except OSError as why:
                 if why.args[0] not in (ENOTCONN, EBADF):
                     raise
 
@@ -501,7 +499,7 @@ class dispatcher:
     def handle_connect_event(self):
         err = self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
         if err != 0:
-            raise socket.error(err, _strerror(err))
+            raise OSError(err, _strerror(err))
         self.handle_connect()
         self.connected = True
         self.connecting = False
@@ -608,7 +606,7 @@ def close_all(map=None, ignore_all=False):
     for x in list(map.values()):  # list() FBO py3
         try:
             x.close()
-        except socket.error as x:
+        except OSError as x:
             if x.args[0] == EBADF:
                 pass
             elif not ignore_all:
@@ -646,7 +644,7 @@ if os.name == "posix":
 
         def __del__(self):
             if self.fd >= 0:
-                warnings.warn("unclosed file %r" % self, compat.ResourceWarning)
+                warnings.warn("unclosed file %r" % self, ResourceWarning)
             self.close()
 
         def recv(self, *args):
@@ -685,7 +683,7 @@ if os.name == "posix":
                 pass
             self.set_file(fd)
             # set it to non-blocking mode
-            compat.set_nonblocking(fd)
+            os.set_blocking(fd, False)
 
         def set_file(self, fd):
             self.socket = file_wrapper(fd)

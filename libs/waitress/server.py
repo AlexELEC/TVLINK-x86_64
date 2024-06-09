@@ -20,13 +20,10 @@ import time
 from waitress import trigger
 from waitress.adjustments import Adjustments
 from waitress.channel import HTTPChannel
+from waitress.compat import IPPROTO_IPV6, IPV6_V6ONLY
 from waitress.task import ThreadedTaskDispatcher
 from waitress.utilities import cleanup_unix_socket
 
-from waitress.compat import (
-    IPPROTO_IPV6,
-    IPV6_V6ONLY,
-)
 from . import wasyncore
 from .proxy_headers import proxy_headers_middleware
 
@@ -128,34 +125,41 @@ def create_server(
         # In this case we have no need to use a MultiSocketServer
         return last_serv
 
+    log_info = last_serv.log_info
     # Return a class that has a utility function to print out the sockets it's
     # listening on, and has a .run() function. All of the TcpWSGIServers
     # registered themselves in the map above.
-    return MultiSocketServer(map, adj, effective_listen, dispatcher)
+    return MultiSocketServer(map, adj, effective_listen, dispatcher, log_info)
 
 
 # This class is only ever used if we have multiple listen sockets. It allows
 # the serve() API to call .run() which starts the wasyncore loop, and catches
-# SystemExit/KeyboardInterrupt so that it can atempt to cleanly shut down.
-class MultiSocketServer(object):
+# SystemExit/KeyboardInterrupt so that it can attempt to cleanly shut down.
+class MultiSocketServer:
     asyncore = wasyncore  # test shim
 
     def __init__(
-        self, map=None, adj=None, effective_listen=None, dispatcher=None,
+        self,
+        map=None,
+        adj=None,
+        effective_listen=None,
+        dispatcher=None,
+        log_info=None,
     ):
         self.adj = adj
         self.map = map
         self.effective_listen = effective_listen
         self.task_dispatcher = dispatcher
+        self.log_info = log_info
 
     def print_listen(self, format_str):  # pragma: nocover
         for l in self.effective_listen:
             l = list(l)
 
             if ":" in l[0]:
-                l[0] = "[{}]".format(l[0])
+                l[0] = f"[{l[0]}]"
 
-            print(format_str.format(*l))
+            self.log_info(format_str.format(*l))
 
     def run(self):
         try:
@@ -172,12 +176,12 @@ class MultiSocketServer(object):
         wasyncore.close_all(self.map)
 
 
-class BaseWSGIServer(wasyncore.dispatcher, object):
-
+class BaseWSGIServer(wasyncore.dispatcher):
     channel_class = HTTPChannel
     next_channel_cleanup = 0
     socketmod = socket  # test shim
     asyncore = wasyncore  # test shim
+    in_connection_overflow = False
 
     def __init__(
         self,
@@ -239,46 +243,13 @@ class BaseWSGIServer(wasyncore.dispatcher, object):
             self.bind_server_socket()
 
         self.effective_host, self.effective_port = self.getsockname()
-        self.server_name = self.get_server_name(self.effective_host)
+        self.server_name = adj.server_name
         self.active_channels = {}
         if _start:
             self.accept_connections()
 
     def bind_server_socket(self):
         raise NotImplementedError  # pragma: no cover
-
-    def get_server_name(self, ip):
-        """Given an IP or hostname, try to determine the server name."""
-
-        if not ip:
-            raise ValueError("Requires an IP to get the server name")
-
-        server_name = str(ip)
-
-        # If we are bound to all IP's, just return the current hostname, only
-        # fall-back to "localhost" if we fail to get the hostname
-        if server_name == "0.0.0.0" or server_name == "::":
-            try:
-                return str(self.socketmod.gethostname())
-            except (socket.error, UnicodeDecodeError):  # pragma: no cover
-                # We also deal with UnicodeDecodeError in case of Windows with
-                # non-ascii hostname
-                return "localhost"
-
-        # Now let's try and convert the IP address to a proper hostname
-        try:
-            server_name = self.socketmod.gethostbyaddr(server_name)[0]
-        except (socket.error, UnicodeDecodeError):  # pragma: no cover
-            # We also deal with UnicodeDecodeError in case of Windows with
-            # non-ascii hostname
-            pass
-
-        # If it contains an IPv6 literal, make sure to surround it with
-        # brackets
-        if ":" in server_name and "[" not in server_name:
-            server_name = "[{}]".format(server_name)
-
-        return server_name
 
     def getsockname(self):
         raise NotImplementedError  # pragma: no cover
@@ -295,7 +266,28 @@ class BaseWSGIServer(wasyncore.dispatcher, object):
         if now >= self.next_channel_cleanup:
             self.next_channel_cleanup = now + self.adj.cleanup_interval
             self.maintenance(now)
-        return self.accepting and len(self._map) < self.adj.connection_limit
+
+        if self.accepting:
+            if (
+                not self.in_connection_overflow
+                and len(self._map) >= self.adj.connection_limit
+            ):
+                self.in_connection_overflow = True
+                self.logger.warning(
+                    "total open connections reached the connection limit, "
+                    "no longer accepting new connections"
+                )
+            elif (
+                self.in_connection_overflow
+                and len(self._map) < self.adj.connection_limit
+            ):
+                self.in_connection_overflow = False
+                self.logger.info(
+                    "total open connections dropped below the connection limit, "
+                    "listening again"
+                )
+            return not self.in_connection_overflow
+        return False
 
     def writable(self):
         return False
@@ -312,15 +304,19 @@ class BaseWSGIServer(wasyncore.dispatcher, object):
             if v is None:
                 return
             conn, addr = v
-        except socket.error:
+            self.set_socket_options(conn)
+        except OSError:
             # Linux: On rare occasions we get a bogus socket back from
             # accept.  socketmodule.c:makesockaddr complains that the
             # address family is unknown.  We don't want the whole server
             # to shut down because of this.
+            # macOS: On occasions when the remote has already closed the socket
+            # before we got around to accepting it, when we try to set the
+            # socket options it will fail. So instead just we log the error and
+            # continue
             if self.adj.log_socket_errors:
                 self.logger.warning("server accept() threw an exception", exc_info=True)
             return
-        self.set_socket_options(conn)
         addr = self.fix_addr(addr)
         self.channel_class(self, conn, addr, self.adj, map=self._map)
 
@@ -354,8 +350,8 @@ class BaseWSGIServer(wasyncore.dispatcher, object):
             if (not channel.requests) and channel.last_activity < cutoff:
                 channel.will_close = True
 
-    def print_listen(self, format_str):  # pragma: nocover
-        print(format_str.format(self.effective_host, self.effective_port))
+    def print_listen(self, format_str):  # pragma: no cover
+        self.log_info(format_str.format(self.effective_host, self.effective_port))
 
     def close(self):
         self.trigger.close()
@@ -368,23 +364,14 @@ class TcpWSGIServer(BaseWSGIServer):
         self.bind(sockaddr)
 
     def getsockname(self):
-        try:
-            return self.socketmod.getnameinfo(
-                self.socket.getsockname(), self.socketmod.NI_NUMERICSERV
-            )
-        except:  # pragma: no cover
-            # This only happens on Linux because a DNS issue is considered a
-            # temporary failure that will raise (even when NI_NAMEREQD is not
-            # set). Instead we try again, but this time we just ask for the
-            # numerichost and the numericserv (port) and return those. It is
-            # better than nothing.
-            return self.socketmod.getnameinfo(
-                self.socket.getsockname(),
-                self.socketmod.NI_NUMERICHOST | self.socketmod.NI_NUMERICSERV,
-            )
+        # Return the IP address, port as numeric
+        return self.socketmod.getnameinfo(
+            self.socket.getsockname(),
+            self.socketmod.NI_NUMERICHOST | self.socketmod.NI_NUMERICSERV,
+        )
 
     def set_socket_options(self, conn):
-        for (level, optname, value) in self.adj.socket_options:
+        for level, optname, value in self.adj.socket_options:
             conn.setsockopt(level, optname, value)
 
 
@@ -405,7 +392,7 @@ if hasattr(socket, "AF_UNIX"):
             if sockinfo is None:
                 sockinfo = (socket.AF_UNIX, socket.SOCK_STREAM, None, None)
 
-            super(UnixWSGIServer, self).__init__(
+            super().__init__(
                 application,
                 map=map,
                 _start=_start,
@@ -413,7 +400,7 @@ if hasattr(socket, "AF_UNIX"):
                 dispatcher=dispatcher,
                 adj=adj,
                 sockinfo=sockinfo,
-                **kw
+                **kw,
             )
 
         def bind_server_socket(self):
@@ -427,9 +414,6 @@ if hasattr(socket, "AF_UNIX"):
 
         def fix_addr(self, addr):
             return ("localhost", None)
-
-        def get_server_name(self, ip):
-            return "localhost"
 
 
 # Compatibility alias.

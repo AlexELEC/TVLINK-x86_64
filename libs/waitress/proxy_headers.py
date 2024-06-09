@@ -1,7 +1,6 @@
 from collections import namedtuple
 
-from .utilities import logger, undquote, BadRequest
-
+from .utilities import BadRequest, logger, undquote
 
 PROXY_HEADERS = frozenset(
     {
@@ -22,7 +21,7 @@ class MalformedProxyHeader(Exception):
         self.header = header
         self.reason = reason
         self.value = value
-        super(MalformedProxyHeader, self).__init__(header, reason, value)
+        super().__init__(header, reason, value)
 
 
 def proxy_headers_middleware(
@@ -53,13 +52,13 @@ def proxy_headers_middleware(
                     ex.reason,
                     ex.value,
                 )
-                error = BadRequest('Header "{0}" malformed.'.format(ex.header))
+                error = BadRequest(f'Header "{ex.header}" malformed.')
                 return error.wsgi_response(environ, start_response)
 
         # Clear out the untrusted proxy headers
         if clear_untrusted:
             clear_untrusted_headers(
-                environ, untrusted_headers, log_warning=log_untrusted, logger=logger,
+                environ, untrusted_headers, log_warning=log_untrusted, logger=logger
             )
 
         return app(environ, start_response)
@@ -68,7 +67,7 @@ def proxy_headers_middleware(
 
 
 def parse_proxy_headers(
-    environ, trusted_proxy_count, trusted_proxy_headers, logger=logger,
+    environ, trusted_proxy_count, trusted_proxy_headers, logger=logger
 ):
     if trusted_proxy_headers is None:
         trusted_proxy_headers = set()
@@ -79,7 +78,7 @@ def parse_proxy_headers(
     untrusted_headers = set(PROXY_HEADERS)
 
     def raise_for_multiple_values():
-        raise ValueError("Unspecified behavior for multiple values found in header",)
+        raise ValueError("Unspecified behavior for multiple values found in header")
 
     if "x-forwarded-for" in trusted_proxy_headers and "HTTP_X_FORWARDED_FOR" in environ:
         try:
@@ -96,7 +95,7 @@ def parse_proxy_headers(
                 if "." not in forward_hop and (
                     ":" in forward_hop and forward_hop[-1] != "]"
                 ):
-                    forwarded_for.append("[{}]".format(forward_hop))
+                    forwarded_for.append(f"[{forward_hop}]")
                 else:
                     forwarded_for.append(forward_hop)
 
@@ -106,7 +105,7 @@ def parse_proxy_headers(
             untrusted_headers.remove("X_FORWARDED_FOR")
         except Exception as ex:
             raise MalformedProxyHeader(
-                "X-Forwarded-For", str(ex), environ["HTTP_X_FORWARDED_FOR"],
+                "X-Forwarded-For", str(ex), environ["HTTP_X_FORWARDED_FOR"]
             )
 
     if (
@@ -127,7 +126,7 @@ def parse_proxy_headers(
             untrusted_headers.remove("X_FORWARDED_HOST")
         except Exception as ex:
             raise MalformedProxyHeader(
-                "X-Forwarded-Host", str(ex), environ["HTTP_X_FORWARDED_HOST"],
+                "X-Forwarded-Host", str(ex), environ["HTTP_X_FORWARDED_HOST"]
             )
 
     if "x-forwarded-proto" in trusted_proxy_headers:
@@ -138,7 +137,7 @@ def parse_proxy_headers(
             untrusted_headers.remove("X_FORWARDED_PROTO")
         except Exception as ex:
             raise MalformedProxyHeader(
-                "X-Forwarded-Proto", str(ex), environ["HTTP_X_FORWARDED_PROTO"],
+                "X-Forwarded-Proto", str(ex), environ["HTTP_X_FORWARDED_PROTO"]
             )
 
     if "x-forwarded-port" in trusted_proxy_headers:
@@ -149,7 +148,7 @@ def parse_proxy_headers(
             untrusted_headers.remove("X_FORWARDED_PORT")
         except Exception as ex:
             raise MalformedProxyHeader(
-                "X-Forwarded-Port", str(ex), environ["HTTP_X_FORWARDED_PORT"],
+                "X-Forwarded-Port", str(ex), environ["HTTP_X_FORWARDED_PORT"]
             )
 
     if "x-forwarded-by" in trusted_proxy_headers:
@@ -211,9 +210,7 @@ def parse_proxy_headers(
                     )
                 )
         except Exception as ex:
-            raise MalformedProxyHeader(
-                "Forwarded", str(ex), environ["HTTP_FORWARDED"],
-            )
+            raise MalformedProxyHeader("Forwarded", str(ex), environ["HTTP_FORWARDED"])
 
         proxies = proxies[-trusted_proxy_count:]
 

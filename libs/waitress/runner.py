@@ -14,9 +14,9 @@
 """Command line runner.
 """
 
-from __future__ import print_function, unicode_literals
 
 import getopt
+import logging
 import os
 import os.path
 import re
@@ -24,6 +24,7 @@ import sys
 
 from waitress import serve
 from waitress.adjustments import Adjustments
+from waitress.utilities import logger
 
 HELP = """\
 Usage:
@@ -95,7 +96,7 @@ Standard options:
     --url-scheme=STR
         Default wsgi.url_scheme value, default is 'http'.
 
-   --url-prefix=STR
+    --url-prefix=STR
         The ``SCRIPT_NAME`` WSGI environment value.  Setting this to anything
         except the empty string will cause the WSGI ``SCRIPT_NAME`` value to be
         the value passed minus any trailing slashes you add, and it will cause
@@ -170,6 +171,12 @@ Tuning options:
         The use_poll argument passed to ``asyncore.loop()``. Helps overcome
         open file descriptors limit. Default is False.
 
+    --channel-request-lookahead=INT
+        Allows channels to stay readable and buffer more requests up to the
+        given maximum even if a request is already being processed. This allows
+        detecting if a client closed the connection while its request is being
+        processed. Default is 0.
+
 """
 
 RUNNER_PATTERN = re.compile(
@@ -191,7 +198,7 @@ RUNNER_PATTERN = re.compile(
 def match(obj_name):
     matches = RUNNER_PATTERN.match(obj_name)
     if not matches:
-        raise ValueError("Malformed application '{0}'".format(obj_name))
+        raise ValueError(f"Malformed application '{obj_name}'")
     return matches.group("module"), matches.group("object")
 
 
@@ -216,7 +223,7 @@ def resolve(module_name, object_name):
 
 def show_help(stream, name, error=None):  # pragma: no cover
     if error is not None:
-        print("Error: {0}\n".format(error), file=stream)
+        print(f"Error: {error}\n", file=stream)
     print(HELP.format(name), file=stream)
 
 
@@ -224,7 +231,7 @@ def show_exception(stream):
     exc_type, exc_value = sys.exc_info()[:2]
     args = getattr(exc_value, "args", None)
     print(
-        ("There was an exception ({0}) importing your module.\n").format(
+        ("There was an exception ({}) importing your module.\n").format(
             exc_type.__name__,
         ),
         file=stream,
@@ -232,7 +239,7 @@ def show_exception(stream):
     if args:
         print("It had these arguments: ", file=stream)
         for idx, arg in enumerate(args, start=1):
-            print("{0}. {1}\n".format(idx, arg), file=stream)
+            print(f"{idx}. {arg}\n", file=stream)
     else:
         print("It had no arguments.", file=stream)
 
@@ -255,6 +262,12 @@ def run(argv=sys.argv, _serve=serve):
         show_help(sys.stderr, name, "Specify one application only")
         return 1
 
+    # set a default level for the logger only if it hasn't been set explicitly
+    # note that this level does not override any parent logger levels,
+    # handlers, etc but without it no log messages are emitted by default
+    if logger.level == logging.NOTSET:
+        logger.setLevel(logging.INFO)
+
     try:
         module, obj_name = match(args[0])
     except ValueError as exc:
@@ -269,11 +282,11 @@ def run(argv=sys.argv, _serve=serve):
     try:
         app = resolve(module, obj_name)
     except ImportError:
-        show_help(sys.stderr, name, "Bad module '{0}'".format(module))
+        show_help(sys.stderr, name, f"Bad module '{module}'")
         show_exception(sys.stderr)
         return 1
     except AttributeError:
-        show_help(sys.stderr, name, "Bad object name '{0}'".format(obj_name))
+        show_help(sys.stderr, name, f"Bad object name '{obj_name}'")
         show_exception(sys.stderr)
         return 1
     if kw["call"]:
