@@ -22,8 +22,8 @@
       <th width="10%" ><a href="#" onClick="sortTo('names')">Name</a></th>
       <th width="10%" ><a href="#" onClick="sortTo('groups')">Group</a></th>
       <th width="2%" ><a href="#" onClick="uncheckSpl()">Clean</a></th> 
-      <th width="12%" >Control</th>
-      <th width="3%" >ID</th>
+      <th width="10%" >Control</th>
+      <th width="5%" >ID</th>
     </tr>
 
     <!-- channels database [ 0-chID, 1-chTitle, 2-chGroup, 3-chLogo, 4-chBinds, 5-chSplit, 6-chExist, 7-chNum ] -->
@@ -91,7 +91,8 @@
       </td>
       <!-- ID -->
       <td>
-        <label >{{row[0]}}</label>
+        <a href="{{ch_url}}/{{row[0]}}">{{row[0]}}</a>
+        <button class="btn" onclick="newPlayer('/player/{{row[0]}}')" ><i class="fa fa-play" style="font-size:26px;color:#74C0FC" ></i></button>
       </td>
     </tr>
     % end
@@ -116,6 +117,14 @@
             server.clean_jnsp_vars(winID);
         }
         document.getElementById(winID).style.display = "none";
+    }
+    function newPlayer(ch_url) {
+        windowWidth = 600;
+        windowHeight = 425;
+        var left = (screen.width - windowWidth) / 2;
+        var top = (screen.height - windowHeight) / 4;
+    
+        window.open(ch_url, "_blank", 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, copyhistory=no, width=' + windowWidth + ', height=' + windowHeight + ', top=' + top + ', left=' + left);
     }
   </script>
 
