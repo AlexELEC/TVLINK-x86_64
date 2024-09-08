@@ -157,7 +157,7 @@ class HTTPSession(Session):
         return self.prepare_request(request)
 
     def request(self, method, url, *args, **kwargs):
-        acceptable_status = kwargs.pop("acceptable_status", [])
+        acceptable_status = kwargs.pop("acceptable_status", (400,401,403))
         exception = kwargs.pop("exception", PluginError)
         headers = kwargs.pop("headers", {})
         params = kwargs.pop("params", {})
@@ -188,8 +188,12 @@ class HTTPSession(Session):
                     proxies=proxies,
                     **kwargs,
                 )
-                if raise_for_status and res.status_code not in acceptable_status:
+                res_status = res.status_code
+                if raise_for_status and res_status not in acceptable_status:
                     res.raise_for_status()
+                else:
+                    print(f"Drop request URL: status code [{res_status}] [{url[:180]}]")
+                    log.warning(f"Drop request URL: status code [{res_status}] [{url[:180]}]")
                 break
             except KeyboardInterrupt:
                 raise

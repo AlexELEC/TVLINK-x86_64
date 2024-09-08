@@ -154,9 +154,15 @@
       <!-- Update -->
       % ids_bt = f'ubt_{srcName}'
       % ids_lb = f'ulb_{srcName}'
+      % updDate = row[7]
+      % updColor = 'black'
+      % if updDate.endswith('#'):
+        % updDate = updDate.replace('#', '').strip()
+        % updColor = 'red'
+      % end
       <td>
-        <button class="btn" onClick="server.upd_src_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh"></i></button>
-        <label id={{ids_lb}} >{{row[7]}}</label>
+        <button class="btn" onClick="server.upd_src_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh" style="color:{{updColor}}"></i></button>
+        <label id={{ids_lb}} >{{updDate}}</label>
       </td>
       <!-- Links -->
       % ids = f'lks_{srcName}'
@@ -266,9 +272,15 @@
       <!-- Update -->
       % ids_bt = f'ubt_{srcName}'
       % ids_lb = f'ulb_{srcName}'
+      % updDate = row[7]
+      % updColor = 'black'
+      % if updDate.endswith('#'):
+        % updDate = updDate.replace('#', '').strip()
+        % updColor = 'red'
+      % end
       <td>
-        <button class="btn" onClick="server.upd_src_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh"></i></button>
-        <label id={{ids_lb}} >{{row[7]}}</label>
+        <button class="btn" onClick="server.upd_src_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh" style="color:{{updColor}}"></i></button>
+        <label id={{ids_lb}} >{{updDate}}</label>
       </td>
       <!-- Links -->
       % ids = f'lks_{srcName}'
@@ -353,9 +365,15 @@
       <!-- Update -->
       % ids_bt = f'ubt_{srcName}'
       % ids_lb = f'ulb_{srcName}'
+      % updDate = row[5]
+      % updColor = 'black'
+      % if updDate.endswith('#'):
+        % updDate = updDate.replace('#', '').strip()
+        % updColor = 'red'
+      % end
       <td>
-        <button class="btn" onClick="server.upd_epgsrc_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh"></i></button>
-        <label id={{ids_lb}} >{{row[5]}}</label>
+        <button class="btn" onClick="server.upd_epgsrc_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh" style="color:{{updColor}}"></i></button>
+        <label id={{ids_lb}} >{{updDate}}</label>
       </td>
       <!-- Channels in EPG -->
       % ids = f'lks_{srcName}'
@@ -432,9 +450,15 @@
       <!-- Update -->
       % ids_bt = f'ubt_{srcName}'
       % ids_lb = f'ulb_{srcName}'
+      % updDate = row[5]
+      % updColor = 'black'
+      % if updDate.endswith('#'):
+        % updDate = updDate.replace('#', '').strip()
+        % updColor = 'red'
+      % end
       <td>
-        <button class="btn" onClick="server.upd_epgsrc_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh"></i></button>
-        <label id={{ids_lb}} >{{row[5]}}</label>
+        <button class="btn" onClick="server.upd_epgsrc_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh" style="color:{{updColor}}"></i></button>
+        <label id={{ids_lb}} >{{updDate}}</label>
       </td>
       <!-- Channels in EPG -->
       % ids = f'lks_{srcName}'

@@ -250,6 +250,10 @@ class StreamlinkOptions(Options):
           - ``str | None``
           - ``None``
           - Write FFmpeg's stderr stream to the filesystem at the specified path
+        * - ffmpeg-loglevel
+          - ``str | None``
+          - ``None``
+          - Set FFmpeg's ``-loglevel`` value
         * - ffmpeg-fout
           - ``str | None``
           - ``None``
@@ -301,6 +305,7 @@ class StreamlinkOptions(Options):
             "ffmpeg-no-validation": True,
             "ffmpeg-verbose": False,
             "ffmpeg-verbose-path": None,
+            "ffmpeg-loglevel": None,
             "ffmpeg-fout": None,
             "ffmpeg-video-transcode": None,
             "ffmpeg-audio-transcode": None,
