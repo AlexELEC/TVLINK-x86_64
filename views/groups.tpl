@@ -14,7 +14,7 @@
     <input id="txt_new_grp" type="text" placeholder="Enter new group" >
     <button id="btn_new_grp" type="button" onClick="createGroup()">OK</button>
     <label style="margin-left:10%;"><b>Clean all groups:</b></label>
-    <button id="btn_new_grp" type="button" onClick="delGroupsAll()">Clean</button>
+    <button id="btn_del_grp" type="button" onClick="delGroupsAll()">Clean</button>
   </form>
 
   <script>

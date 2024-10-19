@@ -1,19 +1,8 @@
+from __future__ import annotations
+
 import argparse
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Literal,
-    Mapping,
-    Optional,
-    Tuple,
-    TypeVar,
-    Union,
-)
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from typing import Any, ClassVar, Literal, TypeVar
 
 
 class Options:
@@ -30,7 +19,7 @@ class Options:
     _MAP_SETTERS: ClassVar[Mapping[str, Callable[[Any, str, Any], None]]] = {}
     """Optional setter mapping for :class:`Options` subclasses"""
 
-    def __init__(self, defaults: Optional[Mapping[str, Any]] = None):
+    def __init__(self, defaults: Mapping[str, Any] | None = None):
         if not defaults:
             defaults = {}
 
@@ -42,7 +31,7 @@ class Options:
         return name.replace("_", "-")
 
     @classmethod
-    def _normalize_dict(cls, src: Mapping[str, Any]) -> Dict[str, Any]:
+    def _normalize_dict(cls, src: Mapping[str, Any]) -> dict[str, Any]:
         normalize_key = cls._normalize_key
         return {normalize_key(key): value for key, value in src.items()}
 
@@ -124,21 +113,21 @@ class Argument:
         self,
         name: str,
         # `ArgumentParser.add_argument()` keywords
-        action: Optional[str] = None,
-        nargs: Optional[Union[int, Literal["?", "*", "+"]]] = None,
+        action: str | None = None,
+        nargs: int | Literal["?", "*", "+"] | None = None,
         const: Any = None,
         default: Any = None,
-        type: Optional[Callable[[Any], Union[_TChoices, Any]]] = None,  # noqa: A002
-        choices: Optional[_TChoices] = None,
+        type: Callable[[Any], _TChoices | Any] | None = None,  # noqa: A002
+        choices: _TChoices | None = None,
         required: bool = False,
-        help: Optional[str] = None,  # noqa: A002
-        metavar: Optional[Union[str, List[str], Tuple[str, ...]]] = None,
-        dest: Optional[str] = None,
+        help: str | None = None,  # noqa: A002
+        metavar: str | list[str] | tuple[str, ...] | None = None,
+        dest: str | None = None,
         # additional `Argument()` keywords
-        requires: Optional[Union[str, List[str], Tuple[str, ...]]] = None,
-        prompt: Optional[str] = None,
+        requires: str | list[str] | tuple[str, ...] | None = None,
+        prompt: str | None = None,
         sensitive: bool = False,
-        argument_name: Optional[str] = None,
+        argument_name: str | None = None,
     ):
         """
         Accepts most of the parameters accepted by :meth:`argparse.ArgumentParser.add_argument()`, except that
@@ -174,11 +163,11 @@ class Argument:
         self.nargs = nargs
         self.const = const
         self.type = type
-        self.choices: Optional[Tuple[Any, ...]] = tuple(choices) if choices else None
+        self.choices: tuple[Any, ...] | None = tuple(choices) if choices else None
         self.required = required
         # argparse compares the object identity of argparse.SUPPRESS
         self.help = argparse.SUPPRESS if help == argparse.SUPPRESS else help
-        self.metavar: Optional[Union[str, Tuple[str, ...]]] = (
+        self.metavar: str | tuple[str, ...] | None = (
             tuple(metavar)
             if metavar is not None and not isinstance(metavar, str)
             else metavar
@@ -187,7 +176,7 @@ class Argument:
         self._default = default
         self._dest = self._normalize_dest(dest) if dest else None
 
-        self.requires: Tuple[str, ...] = (
+        self.requires: tuple[str, ...] = (
             tuple(requires)
             if requires is not None and not isinstance(requires, str)
             else ((requires,) if requires is not None else ())
@@ -195,6 +184,14 @@ class Argument:
         self.prompt = prompt
         self.sensitive = sensitive
         self._argument_name = self._normalize_name(argument_name) if argument_name else None
+
+        # special cases for storing the default value to check whether a plugin argument was set or not
+        if action == "store_true":
+            self.const = True
+            self._default = False if default is None else default
+        elif action == "store_false":
+            self.const = False
+            self._default = True if default is None else default
 
     @staticmethod
     def _normalize_name(name: str) -> str:
@@ -214,7 +211,7 @@ class Argument:
         return self._normalize_dest(self._name(plugin))
 
     @property
-    def dest(self):
+    def dest(self) -> str:
         return self._dest or self._normalize_dest(self.name)
 
     @property
@@ -240,7 +237,11 @@ class Argument:
             name: getattr(self, attr)
             for name, attr in self._ARGPARSE_ARGUMENT_KEYWORDS.items()
             # don't pass keywords with ``None`` values to ``ArgumentParser.add_argument()``
-            if getattr(self, attr) is not None
+            if (
+                getattr(self, attr) is not None
+                # don't include the const option value if the action is store_true or store_false
+                and not (name == "const" and self.action in ("store_true", "store_false"))
+            )
         }
 
     def __hash__(self):
@@ -290,7 +291,7 @@ class Arguments:
     def add(self, argument: Argument) -> None:
         self.arguments[argument.name] = argument
 
-    def get(self, name: str) -> Optional[Argument]:
+    def get(self, name: str) -> Argument | None:
         return self.arguments.get(name)
 
     def requires(self, name: str) -> Iterator[Argument]:

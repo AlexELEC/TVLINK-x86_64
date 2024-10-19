@@ -68,6 +68,10 @@
     function modalClose(winID) {
         document.getElementById(winID).style.display = "none";
     }
+    function goPage(srcName) {
+        page = document.getElementById('go_page').value;
+        window.location.href = "/inputs/" + srcName + "/" + page;
+    }
   </script>
 
   <p>&nbsp;</p>
@@ -85,6 +89,15 @@
           <label style="font-size:20px;color:white;font-weight:bold;">&nbsp;&nbsp;&nbsp;{{page}}&nbsp;&nbsp;&nbsp;</label>
           <button class="btn" onclick="window.location.href='/inputs/{{srcName}}/{{page+1}}'" {{'disabled="disabled"' if page >= last_page else ""}} ><i class="fa fa-forward" style="font-size:20px;color:white" ></i></button>
           <button class="btn" onclick="window.location.href='/inputs/{{srcName}}/{{last_page}}'" ><i class="fa fa-fast-forward" style="font-size:20px;color:white" ></i></button>
+          % if last_page > 2:
+            &nbsp;&nbsp;&nbsp;
+            <select class="form-control" id="go_page" onChange="goPage('{{srcName}}')" >
+                <option>go to</option>
+                % for pg in range(1, last_page+1):
+                <option>{{pg}}</option>
+                % end
+            </select>
+          % end
         </ul>
       </div>
       <label id="countSrc" style="font-size:20px;color:white;font-weight:bold;">channels: {{CNL_TOTAL}}</label>

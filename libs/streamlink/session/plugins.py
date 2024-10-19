@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import logging
 import pkgutil
-from importlib.abc import PathEntryFinder
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from types import ModuleType
-from typing import Dict, Iterator, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING
 
 import streamlink.plugins
 from streamlink.options import Arguments
@@ -11,6 +13,10 @@ from streamlink.options import Arguments
 # noinspection PyProtectedMember
 from streamlink.plugin.plugin import NO_PRIORITY, Matchers, Plugin
 from streamlink.utils.module import exec_module
+
+
+if TYPE_CHECKING:  # pragma: no cover
+    from _typeshed.importlib import PathEntryFinderProtocol
 
 
 log = logging.getLogger(".".join(__name__.split(".")[:-1]))
@@ -27,16 +33,16 @@ class StreamlinkPlugins:
     """
 
     def __init__(self, builtin: bool = True):
-        self._plugins: Dict[str, Type[Plugin]] = {}
+        self._plugins: dict[str, type[Plugin]] = {}
 
         if builtin:
             self.load_builtin()
 
-    def __getitem__(self, item: str) -> Type[Plugin]:
+    def __getitem__(self, item: str) -> type[Plugin]:
         """Access a loaded plugin class by name"""
         return self._plugins[item]
 
-    def __setitem__(self, key: str, value: Type[Plugin]) -> None:
+    def __setitem__(self, key: str, value: type[Plugin]) -> None:
         """Add/override a plugin class by name"""
         self._plugins[key] = value
 
@@ -48,11 +54,11 @@ class StreamlinkPlugins:
         """Check if a plugin is loaded"""
         return item in self._plugins
 
-    def get_names(self) -> List[str]:
+    def get_names(self) -> list[str]:
         """Get a list of the names of all loaded plugins"""
         return sorted(self._plugins.keys())
 
-    def get_loaded(self) -> Dict[str, Type[Plugin]]:
+    def get_loaded(self) -> dict[str, type[Plugin]]:
         """Get a mapping of all loaded plugins"""
         return dict(self._plugins)
 
@@ -60,14 +66,14 @@ class StreamlinkPlugins:
         """Load Streamlink's built-in plugins"""
         return self.load_path(_PLUGINS_PATH)
 
-    def load_path(self, path: Union[Path, str]) -> bool:
+    def load_path(self, path: str | Path) -> bool:
         """Load plugins from a custom directory"""
         plugins = self._load_from_path(path)
         self.update(plugins)
 
         return bool(plugins)
 
-    def update(self, plugins: Dict[str, Type[Plugin]]):
+    def update(self, plugins: Mapping[str, type[Plugin]]):
         """Add/override loaded plugins"""
         self._plugins.update(plugins)
 
@@ -75,7 +81,7 @@ class StreamlinkPlugins:
         """Remove all loaded plugins from the session"""
         self._plugins.clear()
 
-    def iter_arguments(self) -> Iterator[Tuple[str, Arguments]]:
+    def iter_arguments(self) -> Iterator[tuple[str, Arguments]]:
         """Iterate through all plugins and their :class:`Arguments <streamlink.options.Arguments>`"""
         yield from (
             (name, plugin.arguments)
@@ -83,7 +89,7 @@ class StreamlinkPlugins:
             if plugin.arguments
         )
 
-    def iter_matchers(self) -> Iterator[Tuple[str, Matchers]]:
+    def iter_matchers(self) -> Iterator[tuple[str, Matchers]]:
         """Iterate through all plugins and their :class:`Matchers <streamlink.plugin.plugin.Matchers>`"""
         yield from (
             (name, plugin.matchers)
@@ -91,7 +97,7 @@ class StreamlinkPlugins:
             if plugin.matchers
         )
 
-    def match_url(self, url: str) -> Optional[Tuple[str, Type[Plugin]]]:
+    def match_url(self, url: str) -> tuple[str, type[Plugin]] | None:
         """Find a matching plugin by URL"""
 
         for name, matchers in self.iter_matchers():
@@ -102,8 +108,8 @@ class StreamlinkPlugins:
 
         return None
 
-    def _load_from_path(self, path: Union[Path, str]) -> Dict[str, Type[Plugin]]:
-        plugins: Dict[str, Type[Plugin]] = {}
+    def _load_from_path(self, path: str | Path) -> dict[str, type[Plugin]]:
+        plugins: dict[str, type[Plugin]] = {}
 
         tDash = {}
         tHls = {}
@@ -145,10 +151,10 @@ class StreamlinkPlugins:
         return plugins
 
     @staticmethod
-    def _load_plugin_from_finder(name: str, finder: PathEntryFinder) -> Optional[Tuple[ModuleType, Type[Plugin]]]:
+    def _load_plugin_from_finder(name: str, finder: PathEntryFinderProtocol) -> tuple[ModuleType, type[Plugin]] | None:
         try:
             # set the full plugin module name, even for sideloaded plugins
-            mod = exec_module(finder, f"streamlink.plugins.{name}")
+            mod = exec_module(finder, f"streamlink.plugins.{name}", override=True)
         except ImportError as err:
             log.exception(f"Failed to load plugin {name} from {err.path}\n")
             return None

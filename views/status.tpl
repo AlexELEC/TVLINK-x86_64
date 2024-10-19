@@ -13,17 +13,33 @@
   <script src="/styles/jquery.min.js">
 
   <script>
+    var sysVal;
+    var useVal;
+
+    function setRefresh(updTime) {
+      sysVal = setInterval(function(){
+        $("#stat_system").load("/use-sys");
+      }, updTime);
+      useVal = setInterval(function(){
+        $("#stat_stream").load("/use-tvl");
+      }, updTime);
+    }
+
+    function resetRefresh() {
+      updTime = document.getElementById("rtime").value;
+      clearInterval(sysVal);
+      clearInterval(useVal);
+      if (updTime > 0){
+        setRefresh(updTime * 1000)
+      }
+    }
+
     $(document).ready(function(){
       $("#stat_system").load("/use-sys");
       $("#stat_stream").load("/use-tvl");
 
-      // Then reload it every x seconds ...
-      setInterval(function(){
-        $("#stat_system").load("/use-sys");
-      }, 10000);
-      setInterval(function(){
-        $("#stat_stream").load("/use-tvl");
-      }, 10000);
+      // Then reload it every 5 seconds ...
+     setRefresh(5000);
     });
   </script>
 
@@ -31,6 +47,17 @@
 
 <body>
   % include('navbar-top.tpl')
+
+  <table width="85%" style="position:fixed">
+    <tr>
+      <td width="30%" align="right"><b><font color="blue" >Refresh page (sec):&nbsp;&nbsp;</font></b></td>
+      <td width="1%" align="right"><select id="rtime" class="form-control" width="10%" onchange="resetRefresh()" >
+        % for tmr in range(0,31):
+          <option {{'selected' if tmr == 5 else ""}} >{{tmr}}</option>
+        % end
+        </select>
+      </td>
+  </table>
 
   <div id="stat_system"></div>
   <div id="stat_stream"></div>

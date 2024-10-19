@@ -13,14 +13,28 @@
   <script src="/styles/jquery.min.js">
 
   <script>
+    var logVal;
+
+    function setRefresh(updTime) {
+      logVal = setInterval(function(){
+        $("#logger").load("/logger/tvlink.log");
+      }, updTime);
+    }
+
+    function resetRefresh() {
+      updTime = document.getElementById("ltime").value;
+      clearInterval(logVal);
+      if (updTime > 0){
+        setRefresh(updTime * 1000)
+      }
+    }
+
     $(document).ready(function(){
       // load log file
       $("#logger").load("/logger/tvlink.log");
 
-      // Then reload it every 10 seconds ...
-      setInterval(function(){
-        $("#logger").load("/logger/tvlink.log");
-      }, 10000);
+      // Then reload it every 5 seconds ...
+      setRefresh(5000);
     });
   </script>
 
@@ -28,7 +42,17 @@
 
 <body>
   % include('navbar-top.tpl')
-  <p>&nbsp;</p>
+
+  <table width="85%" style="position:fixed">
+    <tr>
+      <td width="30%" align="right"><b><font color="blue" >Refresh page (sec):&nbsp;&nbsp;</font></b></td>
+      <td width="1%" align="right"><select id="ltime" class="form-control" width="10%" onchange="resetRefresh()" >
+        % for tmr in range(0,31):
+          <option {{'selected' if tmr == 5 else ""}} >{{tmr}}</option>
+        % end
+        </select>
+      </td>
+  </table>
 
   <pre>
     <div id="logger"></div>

@@ -1,8 +1,10 @@
-import os, sys
+from __future__ import annotations
+
 import logging
 import warnings
+from collections.abc import Mapping
 from functools import lru_cache
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any
 
 from streamlink import __version__
 from streamlink.exceptions import NoPluginError, PluginError, StreamlinkDeprecationWarning
@@ -28,7 +30,7 @@ class Streamlink:
 
     def __init__(
         self,
-        options: Optional[Dict[str, Any]] = None,
+        options: Mapping[str, Any] | None = None,
         *,
         plugins_builtin: bool = True,
     ):
@@ -47,11 +49,10 @@ class Streamlink:
         self.options: StreamlinkOptions = StreamlinkOptions(self)
         if options:
             self.options.update(options)
-        self.banlist = []
-        self.load_banlist()
 
         #: Plugins of this session instance.
         self.plugins: StreamlinkPlugins = StreamlinkPlugins(builtin=plugins_builtin)
+        self._pluginname = None
 
     def set_option(self, key: str, value: Any) -> None:
         """
@@ -85,7 +86,7 @@ class Streamlink:
         self,
         url: str,
         follow_redirect: bool = True,
-    ) -> Tuple[str, Type[Plugin], str]:
+    ) -> tuple[str, type[Plugin], str]:
         """
         Attempts to find a plugin that can use this URL.
 
@@ -119,7 +120,7 @@ class Streamlink:
         log.debug(f"Plugin not found for: {url}")
         raise NoPluginError
 
-    def resolve_url_no_redirect(self, url: str) -> Tuple[str, Type[Plugin], str]:
+    def resolve_url_no_redirect(self, url: str) -> tuple[str, type[Plugin], str]:
         """
         Attempts to find a plugin that can use this URL.
 
@@ -131,7 +132,7 @@ class Streamlink:
 
         return self.resolve_url(url, follow_redirect=False)
 
-    def streams(self, url: str, options: Optional[Options] = None, **params):
+    def streams(self, url: str, options: Options | None = None, **params):
         """
         Attempts to find a plugin and extracts streams from the *url* if a plugin was found.
 
@@ -142,10 +143,13 @@ class Streamlink:
         :return: A :class:`dict` of stream names and :class:`Stream <streamlink.stream.Stream>` instances
         """
 
-        _pluginname, pluginclass, resolved_url = self.resolve_url(url)
+        self._pluginname, pluginclass, resolved_url = self.resolve_url(url)
         plugin = pluginclass(self, resolved_url, options)
 
         return plugin.streams(**params)
+
+    def get_pluginname(self):
+        return self._pluginname
 
     def get_plugins(self):
         """
@@ -182,16 +186,6 @@ class Streamlink:
             stacklevel=2,
         )
         return self.plugins.load_path(path)
-
-    def load_banlist(self):
-        root_dir = os.path.dirname(sys.argv[0])
-        BAN_FILE = os.path.join(f"{root_dir}/libs/streamlink", 'BANLIST')
-        if os.path.isfile(BAN_FILE):
-            data = ''
-            with open(BAN_FILE, "r") as f:
-                data = f.read()
-            if data:
-                self.banlist = data.splitlines()
 
     @property
     def version(self):

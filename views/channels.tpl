@@ -126,6 +126,10 @@
     
         window.open(ch_url, "_blank", 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, copyhistory=no, width=' + windowWidth + ', height=' + windowHeight + ', top=' + top + ', left=' + left);
     }
+    function goPage() {
+        page = document.getElementById('go_page').value;
+        window.location.href = "/channels/" + page;
+    }
   </script>
 
   <p>&nbsp;</p>
@@ -143,6 +147,15 @@
           <label style="font-size:20px;color:white;font-weight:bold;">&nbsp;&nbsp;&nbsp;{{page}}&nbsp;&nbsp;&nbsp;</label>
           <button class="btn" onclick="window.location.href='/channels/{{page+1}}'" {{'disabled="disabled"' if page >= last_page else ""}} ><i class="fa fa-forward" style="font-size:20px;color:white" ></i></button>
           <button class="btn" onclick="window.location.href='/channels/{{last_page}}'" ><i class="fa fa-fast-forward" style="font-size:20px;color:white" ></i></button>
+          % if last_page > 2:
+            &nbsp;&nbsp;&nbsp;
+            <select class="form-control" id="go_page" onChange="goPage()" >
+                <option>go to</option>
+                % for pg in range(1, last_page+1):
+                <option>{{pg}}</option>
+                % end
+            </select>
+          % end
         </ul>
       </div>
       <a href="/" onClick="delAllChannels()" style="font-size:20px;color:white;font-weight:bold;" >Delete channels</a>

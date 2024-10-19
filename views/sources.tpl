@@ -46,7 +46,11 @@
     }
   </script>
 
-  <!-- M3U Playlists -->
+
+  <h4><b>Channel sources</b></h4>
+  <p>&nbsp;</p>
+
+  <!-- M3U Playlists sources -->
 
   % include('add-m3u.tpl')
 
@@ -55,19 +59,13 @@
     <tr>
       <td width="20%"><b>Playlists sources:</b></td>
       <td><label class="switch">
-        <input id="chbox_m3u_src" type="checkbox" onClick="server.m3u_src_grp()" {{'checked="checked"' if checked_m3u == 1 else ""}} >
+        <input id="chbox_m3u_src" type="checkbox" onClick="server.check_src_grp('Playlists')" {{'checked="checked"' if checked_m3u == 1 else ""}} >
         <span class="slider round"></span> </label>
       </td>
     </tr>
   </table>
 
   % if checked_m3u == 1:
-  <p>&nbsp;</p>
-
-  <form id="add_m3u_form" class="form-inline">
-    <button id="btn_add_m3u" type="button" onClick="server.add_m3u_source()">Add playlist</button>
-  </form>
-  
   <p>&nbsp;</p>
   % end
 
@@ -91,7 +89,7 @@
       <th width="1%" >Links</th>
     </tr>
 
-    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm ] -->
+    <!-- # input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm, 12-usrAgent, 13-portalMAC, 14-portalHLS, 15-repeatStrm ] -->
     % for row in in_srcs:
     % if row[2] == 'Playlists':
     <tr>
@@ -175,7 +173,9 @@
   </table>
 
   % if checked_m3u == 1:
-  <p>&nbsp;</p>
+  <form id="add_m3u_form" class="form-inline">
+    <button id="btn_add_m3u" type="button" onClick="server.add_m3u_source()">Add playlist</button>
+  </form>
   <p>&nbsp;</p>
   % end
 
@@ -188,19 +188,13 @@
     <tr>
       <td width="20%"><b>Addon sources:</b></td>
       <td><label class="switch">
-        <input id="chbox_addon_src" type="checkbox" onClick="server.addon_src_grp()" {{'checked="checked"' if checked_addon == 1 else ""}} >
+        <input id="chbox_addon_src" type="checkbox" onClick="server.check_src_grp('Addons')" {{'checked="checked"' if checked_addon == 1 else ""}} >
         <span class="slider round"></span> </label>
       </td>
     </tr>
   </table>
 
   % if checked_addon == 1:
-  <p>&nbsp;</p>
-
-  <form id="add_addon_form" class="form-inline">
-    <button id="btn_add_addon" type="button" onClick="server.add_addon_source()">Add addon</button>
-  </form>
-  
   <p>&nbsp;</p>
   % end
 
@@ -218,7 +212,7 @@
       <th width="3%" >Links</th>
     </tr>
 
-    <!-- input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm ] -->
+    <!-- # input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm, 12-usrAgent, 13-portalMAC, 14-portalHLS, 15-repeatStrm ] -->
     % for row in in_srcs:
     % if row[2] == 'Addons':
     <tr>
@@ -292,7 +286,126 @@
     % end
   </table>
 
+  % if checked_addon == 1:
+  <form id="add_addon_form" class="form-inline">
+    <button id="btn_add_addon" type="button" onClick="server.add_addon_source()">Add addon</button>
+  </form>
   <p>&nbsp;</p>
+  % end
+
+  <!-- Portal sources -->
+
+  % include('add-portal.tpl')
+
+  % checked_portal = in_grps.get('Portals')
+  <table width="100%">
+    <tr>
+      <td width="20%"><b>Portal sources:</b></td>
+      <td><label class="switch">
+        <input id="chbox_portal_src" type="checkbox" onClick="server.check_src_grp('Portals')" {{'checked="checked"' if checked_portal == 1 else ""}} >
+        <span class="slider round"></span> </label>
+      </td>
+    </tr>
+  </table>
+
+  % if checked_portal == 1:
+  <p>&nbsp;</p>
+  % end
+
+  <table class="table" width="100%" border="2" id="pottal_table" style={{"display:block" if checked_portal == 1 and is_portal else "display:none"}} >
+
+    <tr>
+      <th width="4%" >Name</th>
+      <th width="2%" >Enable</th> 
+      <th width="2%" >Prio</th>
+      <th width="2%" >Limit</th>
+      <th width="2%" >Add channels</th>
+      <th width="2%" >New channels</th>
+      <th width="2%" >Update period</th>
+      <th width="3%" >Update</th>
+      <th width="3%" >Links</th>
+    </tr>
+
+    <!-- # input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm, 12-usrAgent, 13-portalMAC, 14-portalHLS, 15-repeatStrm ] -->
+    % for row in in_srcs:
+    % if row[2] == 'Portals':
+    <tr>
+      <!-- Name -->
+      % srcName = row[0]
+      % ids = f'hrf_{srcName}'
+        <td>
+          <a id={{ids}} {{f'href=/inputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
+          <button class="btn" onClick="server.show_src_conf('{{srcName}}')" ><i class="fa fa-wrench" style="font-size:26px;color:{{options_dist[srcName]}}" ></i></button>
+          <button class="btn" onClick="delAddon('{{srcName}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
+        </td>
+      <!-- Enable -->
+      <td><label class="switch">
+        % ids = f'src_{srcName}'
+        <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[1] == 1 else ""}} >
+        <span class="slider round"></span></label>
+      </td>
+      <!-- Prio -->
+      % ids = f'pri_{srcName}'
+      <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
+        % for prio in val_prio:
+          <option {{'selected' if prio == row[3] else ""}} >{{prio}}</option>
+        % end
+        </select>
+      </td>
+      <!-- Max streams Limit -->
+      % ids = f'mst_{srcName}'
+      <td>
+        <input id={{ids}} type="number" step="1" min="0" max="10" class="form-control" value="{{row[11]}}" onchange="server.change_select('{{ids}}')" >
+      </td>
+      <!-- Add channels -->
+      <td><label class="switch">
+        % ids = f'ach_{srcName}'
+        <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[5] == 1 else ""}} >
+        <span class="slider round"></span></label>
+      </td>
+      <!-- New channels -->
+      <td><label class="switch">
+        % ids = f'new_{srcName}'
+        <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[10] == 1 else ""}} >
+        <span class="slider round"></span></label>
+      </td>
+      <!-- Update period -->
+      % ids = f'upr_{srcName}'
+      <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
+        % for prio in val_update:
+          <option {{'selected' if prio == row[6] else ""}} >{{prio}}</option>
+        % end
+        </select>
+      </td>
+      <!-- Update -->
+      % ids_bt = f'ubt_{srcName}'
+      % ids_lb = f'ulb_{srcName}'
+      % updDate = row[7]
+      % updColor = 'black'
+      % if updDate.endswith('#'):
+        % updDate = updDate.replace('#', '').strip()
+        % updColor = 'red'
+      % end
+      <td>
+        <button class="btn" onClick="server.upd_src_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh" style="color:{{updColor}}"></i></button>
+        <label id={{ids_lb}} >{{updDate}}</label>
+      </td>
+      <!-- Links -->
+      % ids = f'lks_{srcName}'
+      <td>
+        <label id={{ids}} >{{row[8]}}</label>
+      </td>
+    </tr>
+    % end
+    % end
+  </table>
+
+  % if checked_portal == 1:
+  <form id="add_portal_form" class="form-inline">
+    <button id="btn_add_portal" type="button" onClick="server.add_portal_source()">Add portal</button>
+  </form>
+  % end
+
   <p>&nbsp;</p>
 
   <!-- EPG sources -->
@@ -470,10 +583,9 @@
     % end
   </table>
 
-  % if checked_epg_user == 1:
+  % if checked_epg_user == 1 or checked_epg_static == 1:
   <p>&nbsp;</p>
   % end
-  <p>&nbsp;</p>
 
   <form class="form-inline" style={{"display:block" if checked_epg_static == 1 or checked_epg_user == 1 else "display:none"}}>
     <button id="btn_create_epg" type="button" onClick="server.createEPG()">Create EPG</button>
@@ -544,6 +656,10 @@
         <span class="navbar-toggler-icon"></span>
       </button>
       <a href="/updsrc" id="countCH" style="font-size:20px;color:white;font-weight:bold;">Update all sources</a>
+      % if static_playlist == 'true':
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      <a href="/statlist" id="statLST" style="font-size:20px;color:white;font-weight:bold;">Create static playlist</a>
+      % end
     </div>
   </nav>
   % end

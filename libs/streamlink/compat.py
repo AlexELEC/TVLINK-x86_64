@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import importlib
 import inspect
 import os
 import sys
 import warnings
-from typing import Any, Callable, Dict, Optional, Tuple
+from collections.abc import Callable, Mapping
+from typing import Any
+
 
 from streamlink.exceptions import StreamlinkDeprecationWarning
 
@@ -22,7 +26,7 @@ is_win32 = os.name == "nt"
 detect_encoding = charset_normalizer.detect
 
 
-def deprecated(items: Dict[str, Tuple[Optional[str], Any, Any]]) -> None:
+def deprecated(items: Mapping[str, tuple[str | None, Any, Any]]) -> None:
     """
     Deprecate specific module attributes.
 
@@ -37,7 +41,7 @@ def deprecated(items: Dict[str, Tuple[Optional[str], Any, Any]]) -> None:
     """
 
     mod_globals = inspect.stack()[1].frame.f_globals
-    orig_getattr: Optional[Callable[[str], Any]] = mod_globals.get("__getattr__", None)
+    orig_getattr: Callable[[str], Any] | None = mod_globals.get("__getattr__", None)
 
     def __getattr__(name: str) -> Any:
         if name in items:

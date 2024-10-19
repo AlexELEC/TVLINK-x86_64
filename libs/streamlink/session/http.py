@@ -1,12 +1,17 @@
+from __future__ import annotations
+
+import os
 import re
+import sys
 import ssl
 import time
 import logging
 import warnings
-from typing import Any, Dict, Pattern, Tuple
+from typing import Any
 
 import requests.adapters
 import urllib3
+from urllib.parse import urlparse
 from requests import PreparedRequest, Request, Session
 from requests.adapters import HTTPAdapter
 
@@ -70,13 +75,13 @@ requests.adapters.HTTPResponse = _HTTPResponse  # type: ignore[misc]
 # > encodings.
 class Urllib3UtilUrlPercentReOverride:
     # urllib3>=2.0.0: _PERCENT_RE, urllib3<2.0.0: PERCENT_RE
-    _re_percent_encoding: Pattern \
+    _re_percent_encoding: re.Pattern \
         = getattr(urllib3.util.url, "_PERCENT_RE", getattr(urllib3.util.url, "PERCENT_RE", re.compile(r"%[a-fA-F0-9]{2}")))
 
     # urllib3>=1.25.8
     # https://github.com/urllib3/urllib3/blame/1.25.8/src/urllib3/util/url.py#L219-L227
     @classmethod
-    def subn(cls, repl: Any, string: str, count: Any = None) -> Tuple[str, int]:
+    def subn(cls, repl: Any, string: str, count: Any = None) -> tuple[str, int]:
         return string, len(cls._re_percent_encoding.findall(string))
 
 
@@ -89,13 +94,15 @@ _VALID_REQUEST_ARGS = "method", "url", "headers", "files", "data", "params", "au
 
 
 class HTTPSession(Session):
-    params: Dict
+    params: dict
 
     def __init__(self):
         super().__init__()
+        self.__attrs__.append("banlist")
 
         self.headers["User-Agent"] = useragents.FIREFOX
         self.timeout = (20.0,20.0)
+        self.banlist = self.load_banlist()
 
         self.mount("file://", FileAdapter())
 
@@ -144,8 +151,21 @@ class HTTPSession(Session):
         """Resolves any redirects and returns the final URL."""
         return self.get(url, stream=True).url
 
+    def load_banlist(self):
+        """Load Banned URL list."""
+        banlist = []
+        root_dir = os.path.dirname(sys.argv[0])
+        BAN_FILE = os.path.join(f"{root_dir}/libs/streamlink", 'BANLIST')
+        if os.path.isfile(BAN_FILE):
+            data = ''
+            with open(BAN_FILE, "r") as f:
+                data = f.read()
+            if data:
+                banlist = data.splitlines()
+        return banlist
+
     @staticmethod
-    def valid_request_args(**req_keywords) -> Dict:
+    def valid_request_args(**req_keywords) -> dict:
         return {k: v for k, v in req_keywords.items() if k in _VALID_REQUEST_ARGS}
 
     def prepare_new_request(self, **req_keywords) -> PreparedRequest:
@@ -157,7 +177,7 @@ class HTTPSession(Session):
         return self.prepare_request(request)
 
     def request(self, method, url, *args, **kwargs):
-        acceptable_status = kwargs.pop("acceptable_status", (400,401,403))
+        acceptable_status = kwargs.pop("acceptable_status", [])
         exception = kwargs.pop("exception", PluginError)
         headers = kwargs.pop("headers", {})
         params = kwargs.pop("params", {})
@@ -169,15 +189,22 @@ class HTTPSession(Session):
         total_retries = kwargs.pop("retries", 0)
         retry_backoff = kwargs.pop("retry_backoff", 0.3)
         retry_max_backoff = kwargs.pop("retry_max_backoff", 10.0)
+        kwargs["allow_redirects"] = False
         retries = 0
+        redirects = 0
+        redirects_max = 10
+        res = None
 
         if session:
             headers.update(session.headers)
             params.update(session.params)
 
         while True:
-            #log.debug(f"* Request: timeout {timeout} - {url[:180]}")
             try:
+                for ban in self.banlist:
+                    if ban in url:
+                        raise Exception("BANNED")
+
                 res = super().request(
                     method,
                     url,
@@ -188,22 +215,66 @@ class HTTPSession(Session):
                     proxies=proxies,
                     **kwargs,
                 )
-                res_status = res.status_code
-                if raise_for_status and res_status not in acceptable_status:
-                    res.raise_for_status()
-                else:
-                    print(f"Drop request URL: status code [{res_status}] [{url[:180]}]")
-                    log.warning(f"Drop request URL: status code [{res_status}] [{url[:180]}]")
+
+                status_code = res.status_code
+
+                if status_code >= 300:
+                    log.debug(f"* Status code {status_code}: {url}")
+                    try: new_url = res.headers['Location']
+                    except: new_url = ''
+                    res.close()
+                    res = None
+                    if status_code < 400:  # redirect
+                        if new_url and not url == new_url:
+                            if redirects < redirects_max:
+                                if not new_url.startswith("http"):
+                                    new_url = f"{urlparse(url).scheme}://{urlparse(url).netloc}{new_url}"
+                                log.debug(f"* Redirect to: {new_url}")
+                                url = new_url
+                                redirects += 1
+                                continue
+                            else:
+                                raise Exception("MaxRET")
+                        else:
+                            if not new_url:
+                                log.debug("* Error redirects: the redirect url is empty")
+                            else:
+                                log.debug("* Error redirects: there is a cyclic redirect")
+                            raise Exception("ErrorRET")
+                    else:
+                        raise Exception("DropURL")
+                res.raise_for_status()
                 break
             except KeyboardInterrupt:
                 raise
             except Exception as rerr:
-                log.debug(f"Retries: {retries}/{total_retries}")
-                log.debug(f"Reasons: {rerr}")
+                if str(rerr) == "DropURL":
+                    err = exception(f"Drop URL code {status_code}: {url}")
+                    err.err = rerr
+                    raise err from None
+                elif str(rerr) == "MaxRET":
+                    err = exception(f"Exceeded 10 redirects: {url}")
+                    err.err = rerr
+                    raise err from None
+                elif str(rerr) == "ErrorRET":
+                    err = exception(f"Error redirects: {url}")
+                    err.err = rerr
+                    raise err from None
+                elif str(rerr) == "BANNED":
+                    err = exception(f"Banned url: {url}")
+                    err.err = rerr
+                    raise err from None
+
+                if res:
+                    res.close()
+                    res = None
+
+                log.debug(f"* Retries: current [{retries}] / maximum [{total_retries}]")
+                log.debug(f"* Reasons: {rerr} [{url}]")
                 if retries >= total_retries:
                     err = exception(f"Unable to open URL: {rerr}")
                     err.err = rerr
-                    raise err from None  # TODO: fix this
+                    raise err from None
                 retries += 1
                 # back off retrying, but only to a maximum sleep time
                 delay = min(retry_max_backoff,
@@ -236,6 +307,16 @@ class SSLContextAdapter(HTTPAdapter):
     def proxy_manager_for(self, *args, **kwargs):
         kwargs["ssl_context"] = self.poolmanager.connection_pool_kw["ssl_context"]
         return super().proxy_manager_for(*args, **kwargs)
+
+    def send(self, *args, verify=True, **kwargs):
+        # Always update the `check_hostname` and `verify_mode` attributes of our custom `SSLContext` before sending a request:
+        # If `verify` is `False`, then `requests` will set `cert_reqs=ssl.CERT_NONE` on the `HTTPSConnectionPool` object,
+        # which leads to `SSLContext` incompatibilities later on in `urllib3.connection._ssl_wrap_socket_and_match_hostname()`
+        # due to the default values of our `SSLContext`, namely `check_hostname=True` and `verify_mode=ssl.CERT_REQUIRED`.
+        if ssl_context := self.poolmanager.connection_pool_kw.get("ssl_context"):  # pragma: no branch
+            ssl_context.check_hostname = bool(verify)
+            ssl_context.verify_mode = ssl.CERT_NONE if not verify else ssl.CERT_REQUIRED
+        return super().send(*args, verify=verify, **kwargs)
 
 
 class TLSNoDHAdapter(SSLContextAdapter):

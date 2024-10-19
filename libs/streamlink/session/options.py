@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import warnings
+from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
 from socket import AF_INET, AF_INET6
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Iterator, Mapping, Tuple
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import urllib3.util.connection as urllib3_util_connection
 from requests.adapters import HTTPAdapter
@@ -197,42 +200,6 @@ class StreamlinkOptions(Options):
           - ``int``
           - ``3``
           - Max number of DASH manifest reload attempts before giving up
-        * - hls-segment-attempts *(deprecated)*
-          - ``int``
-          - ``3``
-          - See ``stream-segment-attempts``
-        * - hls-segment-threads *(deprecated)*
-          - ``int``
-          - ``3``
-          - See ``stream-segment-threads``
-        * - hls-segment-timeout *(deprecated)*
-          - ``float``
-          - ``10.00``
-          - See ``stream-segment-timeout``
-        * - hls-timeout *(deprecated)*
-          - ``float``
-          - ``60.00``
-          - See ``stream-timeout``
-        * - dash-segment-attempts *(deprecated)*
-          - ``int``
-          - ``3``
-          - See ``stream-segment-attempts``
-        * - dash-segment-threads *(deprecated)*
-          - ``int``
-          - ``3``
-          - See ``stream-segment-threads``
-        * - dash-segment-timeout *(deprecated)*
-          - ``float``
-          - ``10.00``
-          - See ``stream-segment-timeout``
-        * - dash-timeout *(deprecated)*
-          - ``float``
-          - ``60.00``
-          - See ``stream-timeout``
-        * - http-stream-timeout *(deprecated)*
-          - ``float``
-          - ``60.00``
-          - See ``stream-timeout``
         * - ffmpeg-ffmpeg
           - ``str | None``
           - ``None``
@@ -276,7 +243,7 @@ class StreamlinkOptions(Options):
           - When ``ffmpeg-copyts`` is ``True``, shift timestamps to zero
     """
 
-    def __init__(self, session: "Streamlink") -> None:
+    def __init__(self, session: Streamlink) -> None:
         super().__init__(defaults={
             "user-input-requester": None,
             "locale": None,
@@ -319,7 +286,7 @@ class StreamlinkOptions(Options):
     # ---- utils
 
     @staticmethod
-    def _parse_key_equals_value_string(delimiter: str, value: str) -> Iterator[Tuple[str, str]]:
+    def _parse_key_equals_value_string(delimiter: str, value: str) -> Iterator[tuple[str, str]]:
         for keyval in value.split(delimiter):
             try:
                 key, val = keyval.split("=", 1)
@@ -348,8 +315,8 @@ class StreamlinkOptions(Options):
     # ---- setters
 
     def _set_interface(self, key, value):
-        for scheme, adapter in self.session.http.adapters.items():
-            if scheme not in ("http://", "https://"):
+        for adapter in self.session.http.adapters.values():
+            if not isinstance(adapter, HTTPAdapter):
                 continue
             if not value:
                 adapter.poolmanager.connection_pool_kw.pop("source_address", None)
@@ -388,7 +355,7 @@ class StreamlinkOptions(Options):
         self.session.http.mount("https://", adapter)
 
     @staticmethod
-    def _factory_set_http_attr_key_equals_value(delimiter: str) -> Callable[["StreamlinkOptions", str, Any], None]:
+    def _factory_set_http_attr_key_equals_value(delimiter: str) -> Callable[[StreamlinkOptions, str, Any], None]:
         def inner(self: "StreamlinkOptions", key: str, value: Any) -> None:
             getattr(self.session.http, self._OPTIONS_HTTP_ATTRS[key]).update(
                 value if isinstance(value, dict) else dict(self._parse_key_equals_value_string(delimiter, value)),
@@ -397,8 +364,8 @@ class StreamlinkOptions(Options):
         return inner
 
     @staticmethod
-    def _factory_set_deprecated(name: str, mapper: Callable[[Any], Any]) -> Callable[["StreamlinkOptions", str, Any], None]:
-        def inner(self: "StreamlinkOptions", key: str, value: Any) -> None:
+    def _factory_set_deprecated(name: str, mapper: Callable[[Any], Any]) -> Callable[[StreamlinkOptions, str, Any], None]:
+        def inner(self: StreamlinkOptions, key: str, value: Any) -> None:
             self.set_explicit(name, mapper(value))
             warnings.warn(
                 f"`{key}` has been deprecated in favor of the `{name}` option",
@@ -414,7 +381,7 @@ class StreamlinkOptions(Options):
 
     # ----
 
-    _OPTIONS_HTTP_ATTRS: ClassVar[Dict[str, str]] = {
+    _OPTIONS_HTTP_ATTRS: ClassVar[Mapping[str, str]] = {
         "http-cookies": "cookies",
         "http-headers": "headers",
         "http-query-params": "params",
@@ -424,7 +391,7 @@ class StreamlinkOptions(Options):
         "http-timeout": "timeout",
     }
 
-    _MAP_GETTERS: ClassVar[Mapping[str, Callable[["StreamlinkOptions", str], Any]]] = {
+    _MAP_GETTERS: ClassVar[Mapping[str, Callable[[StreamlinkOptions, str], Any]]] = {
         "http-proxy": _get_http_proxy,
         "https-proxy": _get_http_proxy,
         "http-cookies": _get_http_attr,
@@ -436,7 +403,7 @@ class StreamlinkOptions(Options):
         "http-timeout": _get_http_attr,
     }
 
-    _MAP_SETTERS: ClassVar[Mapping[str, Callable[["StreamlinkOptions", str, Any], None]]] = {
+    _MAP_SETTERS: ClassVar[Mapping[str, Callable[[StreamlinkOptions, str, Any], None]]] = {
         "interface": _set_interface,
         "ipv4": _set_ipv4_ipv6,
         "ipv6": _set_ipv4_ipv6,
@@ -450,13 +417,4 @@ class StreamlinkOptions(Options):
         "http-ssl-verify": _set_http_attr,
         "http-trust-env": _set_http_attr,
         "http-timeout": _set_http_attr,
-        "dash-segment-attempts": _factory_set_deprecated("stream-segment-attempts", int),
-        "hls-segment-attempts": _factory_set_deprecated("stream-segment-attempts", int),
-        "dash-segment-threads": _factory_set_deprecated("stream-segment-threads", int),
-        "hls-segment-threads": _factory_set_deprecated("stream-segment-threads", int),
-        "dash-segment-timeout": _factory_set_deprecated("stream-segment-timeout", float),
-        "hls-segment-timeout": _factory_set_deprecated("stream-segment-timeout", float),
-        "dash-timeout": _factory_set_deprecated("stream-timeout", float),
-        "hls-timeout": _factory_set_deprecated("stream-timeout", float),
-        "http-stream-timeout": _factory_set_deprecated("stream-timeout", float),
     }

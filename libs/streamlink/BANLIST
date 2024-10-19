@@ -5,10 +5,14 @@ vod/ban
 vod/deny
 /empty.ts
 /drop.ts
+/offline.ts
 /test_end.ts
 /disabled/
+/authnoaccess/
 video/money
 errors/banned
+/zabava-block
 vod/allow_all_n
 lock/banner_404
 lock/banner_dead
+/tech/default.mp4/

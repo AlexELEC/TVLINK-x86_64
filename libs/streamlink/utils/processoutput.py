@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import asyncio
+from collections.abc import Callable
 from contextlib import suppress
-from typing import Callable, List, Optional
 
 
 class ProcessOutput:
-    def __init__(self, command: List[str], timeout: Optional[float] = None):
+    def __init__(self, command: list[str], timeout: float | None = None):
         self.command = command
         self.timeout = timeout
 
@@ -32,7 +34,7 @@ class ProcessOutput:
             code = await process.wait()
             done.set_result(self.onexit(code))
 
-        async def onoutput(callback: Callable[[int, str], Optional[bool]], streamreader: asyncio.StreamReader):
+        async def onoutput(callback: Callable[[int, str],  bool | None], streamreader: asyncio.StreamReader):
             line: bytes
             idx = 0
             async for line in streamreader:
@@ -64,8 +66,8 @@ class ProcessOutput:
     def onexit(self, code: int) -> bool:
         return code == 0
 
-    def onstdout(self, idx: int, line: str) -> Optional[bool]:  # pragma: no cover
+    def onstdout(self, idx: int, line: str) -> bool | None:
         pass
 
-    def onstderr(self, idx: int, line: str) -> Optional[bool]:  # pragma: no cover
+    def onstderr(self, idx: int, line: str) -> bool | None:
         pass

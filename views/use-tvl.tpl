@@ -4,6 +4,15 @@
   <h4><b>Active streams:</b></h4>
   <p>&nbsp;</p>
 
+  <script>
+    function nextStream(chTitle, chID, client) {
+        if (confirm(chTitle + ": switch to next stream?")) {
+            server.next_channel(chID, client);
+            location.reload(true);
+        }
+    }
+  </script>
+
   <table class="table" width="100%" border="2" >
 
     <tr>
@@ -25,7 +34,7 @@
     <tr>
       <!-- Client -->
       <td>
-        <label>{{client}}  </label><button class="btn" onClick='server.next_channel("{{chID}}", "{{client}}")' ><i class="fa fa-exchange" style="font-size:20px;color:red" ></i></button>
+        <label>{{client}}  </label><button title="Next stream" class="btn" onClick='nextStream("{{chTitle}}", "{{chID}}", "{{client}}")' ><i class="fa fa-forward fa-border" style="font-size:16px;color:red" ></i></button>
       </td>
       <!-- Channel -->
       <td>
@@ -46,4 +55,3 @@
     </tr>
     % end
   </table>
-

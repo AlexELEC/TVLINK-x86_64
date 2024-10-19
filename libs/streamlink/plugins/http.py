@@ -20,7 +20,7 @@ class HTTPStreamPlugin(Plugin):
         params = parse_params(data.get("params"))
         log.debug(f"URL={url}; params={params}")
 
-        return {"live": HTTPStream(self.session, url, **params)}
+        return {"live": HTTPStream(self.session, url, buffered=True, **params)}
 
 
 __plugin__ = HTTPStreamPlugin

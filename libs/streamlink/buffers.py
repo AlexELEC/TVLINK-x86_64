@@ -71,8 +71,6 @@ class Buffer:
         self.closed = True
         # cleanup Buffer
         self.chunks.clear()
-        self.current_chunk = None
-        self.length = 0
 
 
 class RingBuffer(Buffer):
@@ -110,7 +108,7 @@ class RingBuffer(Buffer):
     def read(self, size=-1, block=True, timeout=None):
         if block and not self.closed:
             if not self.event_used.wait(timeout) and self.length == 0:
-                raise OSError("Read timeout")
+                raise OSError(f"Stremlink Thread job Read Buffer timeout: {timeout}")
 
         return self._read(size)
 

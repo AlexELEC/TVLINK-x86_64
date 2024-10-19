@@ -21,9 +21,8 @@ class StreamIOWrapper(io.IOBase):
 class StreamIOIterWrapper(io.IOBase):
     """Wraps a iterator and turn it into a file-like object"""
 
-    def __init__(self, iterator, res_http = None):
+    def __init__(self, iterator):
         self.iterator = iterator
-        self.res_http = res_http
         self.buffer = Buffer()
 
     def read(self, size=-1):
@@ -40,12 +39,7 @@ class StreamIOIterWrapper(io.IOBase):
         return self.buffer.read(size)
 
     def close(self):
-        if hasattr(self.res_http, "close"):
-            try:
-                self.res_http.close()
-            except Exception:
-                pass
-        self.res_http = None
+        pass
 
 
 class StreamIOThreadWrapper(io.IOBase):
