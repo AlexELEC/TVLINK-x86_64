@@ -78,8 +78,20 @@ NORMAL_PRIORITY = 20
 LOW_PRIORITY = 10
 NO_PRIORITY = 0
 
-_COOKIE_KEYS = \
-    "version", "name", "value", "port", "domain", "path", "secure", "expires", "discard", "comment", "comment_url", "rfc2109"
+_COOKIE_KEYS = (
+    "version",
+    "name",
+    "value",
+    "port",
+    "domain",
+    "path",
+    "secure",
+    "expires",
+    "discard",
+    "comment",
+    "comment_url",
+    "rfc2109",
+)
 
 
 def stream_weight(stream):
@@ -225,48 +237,45 @@ class Plugin:
     Plugin base class for retrieving streams and metadata from the URL specified.
     """
 
-    matchers: ClassVar[Matchers | None] = None
-    """
-    The list of plugin matchers (URL pattern + priority + optional name).
-    This list supports matcher lookups both by matcher index, as well as matcher name, if defined.
+    #: The Streamlink session which this plugin instance belongs to,
+    #: with access to its :attr:`HTTPSession <streamlink.session.Streamlink.http>`.
+    session: Streamlink
 
-    Use the :func:`pluginmatcher` decorator to initialize plugin matchers.
-    """
-
-    arguments: ClassVar[Arguments | None] = None
-    """
-    The plugin's :class:`Arguments <streamlink.options.Arguments>` collection.
-
-    Use the :func:`pluginargument` decorator to initialize plugin arguments.
-    """
-
-    matches: Matches
-    """
-    A list of optional :class:`re.Match` results of all defined matchers.
-    This list supports match lookups both by the respective matcher index, as well as matcher name, if defined.
-    """
-
-    matcher: re.Pattern | None = None
-    """A reference to the compiled :class:`re.Pattern` of the first matching matcher"""
-
-    match: re.Match | None = None
-    """A reference to the :class:`re.Match` result of the first matching matcher"""
-
+    #: Plugin options, initialized with the user-set values of the plugin's arguments.
     options: Options
-    """Plugin options, initialized with the user-set values of the plugin's arguments"""
 
+    #: Plugin cache object, used to store plugin-specific data other than HTTP session cookies.
     cache: Cache
-    """Plugin cache object, used to store plugin-specific data other than HTTP session cookies"""
 
-    # plugin metadata attributes
+    #: The list of plugin matchers (URL pattern + priority + optional name).
+    #: Supports matcher lookups by the matcher index or the optional matcher name.
+    #:
+    #: Use the :func:`pluginmatcher` decorator to initialize plugin matchers.
+    matchers: ClassVar[Matchers | None] = None
+
+    #: The plugin's :class:`Arguments <streamlink.options.Arguments>` collection.
+    #:
+    #: Use the :func:`pluginargument` decorator to initialize plugin arguments.
+    arguments: ClassVar[Arguments | None] = None
+
+    #: A list of optional :class:`re.Match` results of all defined matchers.
+    #: Supports match lookups by the matcher index or the optional matcher name.
+    matches: Matches
+
+    #: A reference to the compiled :class:`re.Pattern` of the first matching matcher.
+    matcher: re.Pattern | None = None
+
+    #: A reference to the :class:`re.Match` result of the first matching matcher.
+    match: re.Match | None = None
+
+    #: Metadata 'id' attribute: unique stream ID, etc.
     id: str | None = None
-    """Metadata 'id' attribute: unique stream ID, etc."""
+    #: Metadata 'title' attribute: the stream's short descriptive title.
     title: str | None = None
-    """Metadata 'title' attribute: the stream's short descriptive title"""
+    #: Metadata 'author' attribute: the channel or broadcaster name, etc.
     author: str | None = None
-    """Metadata 'author' attribute: the channel or broadcaster name, etc."""
+    #: Metadata 'category' attribute: name of a game being played, a music genre, etc.
     category: str | None = None
-    """Metadata 'category' attribute: name of a game being played, a music genre, etc."""
 
     _url: str = ""
 
@@ -389,9 +398,7 @@ class Plugin:
             stream_types = self.default_stream_types(ostreams)
 
         # Add streams depending on stream type and priorities
-        sorted_streams = sorted(iterate_streams(ostreams),
-                                key=partial(stream_type_priority,
-                                            stream_types))
+        sorted_streams = sorted(iterate_streams(ostreams), key=partial(stream_type_priority, stream_types))
 
         streams = {}
         for name, stream in sorted_streams:
@@ -403,7 +410,7 @@ class Plugin:
 
             # drop _alt from any stream names
             if name.endswith("_alt"):
-                name = name[:-len("_alt")]
+                name = name[: -len("_alt")]
 
             existing = streams.get(name)
             if existing:
@@ -752,8 +759,12 @@ def pluginargument(
 
 
 __all__ = [
-    "HIGH_PRIORITY", "NORMAL_PRIORITY", "LOW_PRIORITY", "NO_PRIORITY",
+    "HIGH_PRIORITY",
+    "NORMAL_PRIORITY",
+    "LOW_PRIORITY",
+    "NO_PRIORITY",
     "Plugin",
-    "Matcher", "pluginmatcher",
+    "Matcher",
+    "pluginmatcher",
     "pluginargument",
 ]

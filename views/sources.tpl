@@ -6,6 +6,7 @@
 <body>
   % include('navbar-top.tpl')
   % include('alert.tpl')
+  % include('picons.tpl')
   % include('edit-epg.tpl')
   % include('src-conf.tpl')
   <p>&nbsp;</p>
@@ -42,6 +43,16 @@
         if (confirm(usrName + ": delete this Profile?")) {
             server.del_profile(usrName);
             location.reload(true);
+        }
+    }
+    function createPicons() {
+        if (confirm("Do you want to create picons?")) {
+            server.create_picons();
+        }
+    }
+    function createEPG() {
+        if (confirm("Do you want to create EPG?")) {
+            server.createEPG();
         }
     }
   </script>
@@ -89,7 +100,7 @@
       <th width="1%" >Links</th>
     </tr>
 
-    <!-- # input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm, 12-usrAgent, 13-portalMAC, 14-portalHLS, 15-repeatStrm ] -->
+    <!-- # input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm, 12-usrAgent, 13-portalMAC, 14-portalHLS, 15-repeatStrm, 16-LogoOff ] -->
     % for row in in_srcs:
     % if row[2] == 'Playlists':
     <tr>
@@ -212,7 +223,7 @@
       <th width="3%" >Links</th>
     </tr>
 
-    <!-- # input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm, 12-usrAgent, 13-portalMAC, 14-portalHLS, 15-repeatStrm ] -->
+    <!-- # input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm, 12-usrAgent, 13-portalMAC, 14-portalHLS, 15-repeatStrm, 16-LogoOff ] -->
     % for row in in_srcs:
     % if row[2] == 'Addons':
     <tr>
@@ -326,7 +337,7 @@
       <th width="3%" >Links</th>
     </tr>
 
-    <!-- # input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm, 12-usrAgent, 13-portalMAC, 14-portalHLS, 15-repeatStrm ] -->
+    <!-- # input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm, 12-usrAgent, 13-portalMAC, 14-portalHLS, 15-repeatStrm, 16-LogoOff ] -->
     % for row in in_srcs:
     % if row[2] == 'Portals':
     <tr>
@@ -404,7 +415,180 @@
   <form id="add_portal_form" class="form-inline">
     <button id="btn_add_portal" type="button" onClick="server.add_portal_source()">Add portal</button>
   </form>
+  <p>&nbsp;</p>
   % end
+
+  <!-- AceStream sources -->
+
+  % include('add-ace.tpl')
+
+  % checked_ace = in_grps.get('Acestream')
+  <table width="100%">
+    <tr>
+      <td width="20%"><b>AceStream sources:</b></td>
+      <td><label class="switch">
+        <input id="chbox_ace_src" type="checkbox" onClick="server.check_src_grp('Acestream')" {{'checked="checked"' if checked_ace == 1 else ""}} >
+        <span class="slider round"></span> </label>
+      </td>
+    </tr>
+  </table>
+
+  % if checked_ace == 1:
+  <p>&nbsp;</p>
+  % end
+
+  <table class="table" width="100%" border="2" id="ace_table" style={{"display:block" if checked_ace == 1 and is_acestream else "display:none"}} >
+
+    <tr>
+      <th width="4%" >Name</th>
+      <th width="2%" >Enable</th> 
+      <th width="2%" >Prio</th>
+      <th width="2%" >Limit</th>
+      <th width="2%" >Add channels</th>
+      <th width="2%" >New channels</th>
+      <th width="2%" >Update period</th>
+      <th width="3%" >Update</th>
+      <th width="3%" >Links</th>
+    </tr>
+
+    <!-- # input_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-catchUp, 5-addCh, 6-updPeriod, 7-updDate, 8-links, 9-srcUrl, 10-newCh, 11-maxStrm, 12-usrAgent, 13-portalMAC, 14-portalHLS, 15-repeatStrm, 16-LogoOff ] -->
+    % for row in in_srcs:
+    % if row[2] == 'Acestream':
+    <tr>
+      <!-- Name -->
+      % srcName = row[0]
+      % ids = f'hrf_{srcName}'
+        <td>
+          <a id={{ids}} {{f'href=/inputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
+          <button class="btn" onClick="server.show_src_conf('{{srcName}}')" ><i class="fa fa-wrench" style="font-size:26px;color:{{options_dist[srcName]}}" ></i></button>
+          <button class="btn" onClick="delAddon('{{srcName}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
+        </td>
+      <!-- Enable -->
+      <td><label class="switch">
+        % ids = f'src_{srcName}'
+        <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[1] == 1 else ""}} >
+        <span class="slider round"></span></label>
+      </td>
+      <!-- Prio -->
+      % ids = f'pri_{srcName}'
+      <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
+        % for prio in val_prio:
+          <option {{'selected' if prio == row[3] else ""}} >{{prio}}</option>
+        % end
+        </select>
+      </td>
+      <!-- Max streams Limit -->
+      % ids = f'mst_{srcName}'
+      <td>
+        <input id={{ids}} type="number" step="1" min="0" max="10" class="form-control" value="{{row[11]}}" onchange="server.change_select('{{ids}}')" >
+      </td>
+      <!-- Add channels -->
+      <td><label class="switch">
+        % ids = f'ach_{srcName}'
+        <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[5] == 1 else ""}} >
+        <span class="slider round"></span></label>
+      </td>
+      <!-- New channels -->
+      <td><label class="switch">
+        % ids = f'new_{srcName}'
+        <input id={{ids}} type="checkbox" onClick="server.click_switch('{{ids}}')" {{'checked="checked"' if row[10] == 1 else ""}} >
+        <span class="slider round"></span></label>
+      </td>
+      <!-- Update period -->
+      % ids = f'upr_{srcName}'
+      <td><select id={{ids}} class="form-control" onchange="server.change_select('{{ids}}')" >
+        % for prio in val_update:
+          <option {{'selected' if prio == row[6] else ""}} >{{prio}}</option>
+        % end
+        </select>
+      </td>
+      <!-- Update -->
+      % ids_bt = f'ubt_{srcName}'
+      % ids_lb = f'ulb_{srcName}'
+      % updDate = row[7]
+      % updColor = 'black'
+      % if updDate.endswith('#'):
+        % updDate = updDate.replace('#', '').strip()
+        % updColor = 'red'
+      % end
+      <td>
+        <button class="btn" onClick="server.upd_src_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh" style="color:{{updColor}}"></i></button>
+        <label id={{ids_lb}} >{{updDate}}</label>
+      </td>
+      <!-- Links -->
+      % ids = f'lks_{srcName}'
+      <td>
+        <label id={{ids}} >{{row[8]}}</label>
+      </td>
+    </tr>
+    % end
+    % end
+  </table>
+
+  % if checked_ace == 1:
+  <form id="add_ace_form" class="form-inline">
+    <button id="btn_add_portal" type="button" onClick="server.add_ace_source()">Add AceStream</button>
+  </form>
+  % end
+
+  <p>&nbsp;</p>
+
+  <!-- Channel picons -->
+
+    <% logos_tbl_head = '''
+    <tr>
+      <th width="10%" >Option</th>
+      <th width="3%" >Value</th>
+    </tr>'''
+    %>
+
+  <h4><b>Channel picons</b></h4>
+  <p>&nbsp;</p>
+
+  <div style="overflow:hidden;_zoom:1">
+
+    <table class="table" border="2" style="float:left;width:49%;display:block" >
+
+      {{!logos_tbl_head}}
+
+      <!-- Type of picons -->
+      <tr>
+        <td>
+          <label class="form-control">Type of picons</label>
+        </td>
+        <td>
+          <select id="logo_type" class="form-control" onchange="server.set_picons()" >
+            % for ltp in ['dark', 'transparent']:
+              <option {{'selected' if ltp == logo_type else ""}} >{{ltp}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
+
+    </table>
+
+    <table class="table" border="2" style="float:right;width:49%;display:block" >
+
+      {{!logos_tbl_head}}
+
+      <!-- Convert picons -->
+      <tr>
+        <td>
+          <label class="form-control">Convert picons</label>
+        </td>
+        <td><label class="switch">
+          <input id="logo_convert" type="checkbox" onClick="server.set_picons()" {{'checked="checked"' if logo_convert == 'true' else ""}} >
+          <span class="slider round"></span></label>
+        </td>
+      </tr>
+
+    </table>
+
+  </div>
+
+  <form class="form-inline">
+    <button id="logo_run" type="button" onClick="createPicons()">Create picons</button>
+  </form>
 
   <p>&nbsp;</p>
 
@@ -588,7 +772,7 @@
   % end
 
   <form class="form-inline" style={{"display:block" if checked_epg_static == 1 or checked_epg_user == 1 else "display:none"}}>
-    <button id="btn_create_epg" type="button" onClick="server.createEPG()">Create EPG</button>
+    <button id="btn_create_epg" type="button" onClick="createEPG()">Create EPG</button>
     <button id="btn_clean_epg" type="button" style="margin-left:2%;" onClick="delEPG_map()">Clean manual EPG mapping</button>
   </form>
 

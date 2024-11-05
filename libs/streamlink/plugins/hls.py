@@ -9,14 +9,15 @@ from streamlink.utils.url import update_scheme
 
 log = logging.getLogger(__name__)
 
+@pluginmatcher(
+    re.compile(r"hls(?:variant)?://(?P<url>\S+)(?:\s(?P<params>.+))?$"),
+)
 @pluginmatcher(re.compile(
-    r"hls(?:variant)?://(?P<url>\S+)(?:\s(?P<params>.+))?$",
-))
-@pluginmatcher(re.compile(
-    # URL with explicit scheme, or URL with implicit HTTPS scheme and a path
-    r"(?P<url>[^/]+/\S+\.m3u8(?:\?\S*)?)(?:\s(?P<params>.+))?$",
-    re.IGNORECASE,
-))
+        # URL with explicit scheme, or URL with implicit HTTPS scheme and a path
+        r"(?P<url>[^/]+/\S+\.m3u8(?:\?\S*)?)(?:\s(?P<params>.+))?$",
+        re.IGNORECASE,
+    ),
+)
 class HLSPlugin(Plugin):
     def _get_streams(self):
         data = self.match.groupdict()

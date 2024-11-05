@@ -66,8 +66,8 @@ class StreamIOThreadWrapper(io.IOBase):
             while self.running:
                 try:
                     data = self.fd.read(self.chunk_size)
-                except OSError as error:
-                    self.error = error
+                except:
+                    self.error = "read data error"
                     break
 
                 if len(data) == 0:
@@ -100,8 +100,7 @@ class StreamIOThreadWrapper(io.IOBase):
         if self.filler.error and self.buffer.length == 0:
             raise self.filler.error
 
-        return self.buffer.read(size, block=self.filler.is_alive(),
-                                timeout=self.timeout)
+        return self.buffer.read(size, block=self.filler.is_alive(), timeout=self.timeout)
 
     def close(self):
         self.filler.stop()

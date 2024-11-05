@@ -59,6 +59,11 @@
         <img alt="" border="0" src="https://www.paypal.com/en_UA/i/scr/pixel.gif" width="1" height="1" />
     </form>
     <p>&nbsp;</p>
+    <p><b>Crypto Wallets:</b></p>
+    <p><b>LTC:</b> MUV9GjhBRQnRGqNeszYrKDKemNRZ3HfXTM</p>
+    <p><b>USDT TRC-20:</b> TNb7QRBZgThP9oRhhenJ4A8Ky5pKbsVYzU</p>
+    <p><b>USDT BEP-20:</b> 0xFd2cd18183d1C617E53E57CdF58473F5e4Ac58Be</p>
+    <p>&nbsp;</p>
     Telegram chat: <a href="https://t.me/tvlinkae">t.me/tvlinkae</a>
     <p><a href="https://t.me/tvlinkae"><img src="/styles/telegram.png" style="border:0" ></a></p>
     Copyright © 2020 - 2024 all rights reserved to <a href="https://alexelec.tv">Alex@ELEC</a>

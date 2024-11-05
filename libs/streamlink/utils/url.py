@@ -56,8 +56,16 @@ def update_scheme(current: str, target: str, force: bool = True) -> str:
     return target
 
 
-def url_equal(first, second, ignore_scheme=False, ignore_netloc=False, ignore_path=False, ignore_params=False,
-              ignore_query=False, ignore_fragment=False):
+def url_equal(
+    first,
+    second,
+    ignore_scheme=False,
+    ignore_netloc=False,
+    ignore_path=False,
+    ignore_params=False,
+    ignore_query=False,
+    ignore_fragment=False,
+):
     """
     Compare two URLs and return True if they are equal, some parts of the URLs can be ignored
     :param first: URL

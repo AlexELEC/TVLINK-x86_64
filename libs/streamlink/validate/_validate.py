@@ -9,8 +9,8 @@ from typing import Any
 from lxml.etree import Element, iselement
 
 from streamlink.exceptions import PluginError
-from streamlink.plugin.api.validate._exception import ValidationError
-from streamlink.plugin.api.validate._schemas import (
+from streamlink.validate._exception import ValidationError
+from streamlink.validate._schemas import (
     AllSchema,
     AnySchema,
     AttrSchema,
@@ -34,6 +34,7 @@ class Schema(AllSchema):
     which by default raises :class:`PluginError <streamlink.exceptions.PluginError>` on error.
     """
 
+    # TODO: replace default PluginError exception
     def validate(self, value: Any, name: str = "result", exception: type[Exception] = PluginError) -> Any:
         try:
             return validate(self, value)
@@ -81,9 +82,7 @@ def _validate_sequence(schema: list | tuple | set | frozenset, value):
     validate(cls, value)
     any_schemas = AnySchema(*schema)
 
-    return cls(
-        validate(any_schemas, v) for v in value
-    )
+    return cls(validate(any_schemas, v) for v in value)
 
 
 @validate.register
@@ -354,9 +353,7 @@ def _validate_xmlelementschema(schema: XmlElementSchema, value):
 
 @validate.register
 def _validate_uniongetschema(schema: UnionGetSchema, value):
-    return schema.seq(
-        validate(getter, value) for getter in schema.getters
-    )
+    return schema.seq(validate(getter, value) for getter in schema.getters)
 
 
 @validate.register
@@ -408,6 +405,4 @@ def _validate_union_dict(schema: dict, value):
 @validate_union.register(set)
 @validate_union.register(frozenset)
 def _validate_union_sequence(schemas: list | tuple | set | frozenset, value):
-    return type(schemas)(
-        validate(schema, value) for schema in schemas
-    )
+    return type(schemas)(validate(schema, value) for schema in schemas)

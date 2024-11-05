@@ -32,6 +32,8 @@ try:
     # We tell urllib3 to disable warnings about unverified HTTPS requests,
     # because in some plugins we have to do unverified requests intentionally.
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    # Disbale urllib3.exceptions.HeaderParsingError
+    urllib3.disable_warnings(urllib3.exceptions.HeaderParsingError)
 except AttributeError:
     pass
 
@@ -75,8 +77,11 @@ requests.adapters.HTTPResponse = _HTTPResponse  # type: ignore[misc]
 # > encodings.
 class Urllib3UtilUrlPercentReOverride:
     # urllib3>=2.0.0: _PERCENT_RE, urllib3<2.0.0: PERCENT_RE
-    _re_percent_encoding: re.Pattern \
-        = getattr(urllib3.util.url, "_PERCENT_RE", getattr(urllib3.util.url, "PERCENT_RE", re.compile(r"%[a-fA-F0-9]{2}")))
+    _re_percent_encoding: re.Pattern = getattr(
+        urllib3.util.url,
+        "_PERCENT_RE",
+        getattr(urllib3.util.url, "PERCENT_RE", re.compile(r"%[a-fA-F0-9]{2}")),
+    )
 
     # urllib3>=1.25.8
     # https://github.com/urllib3/urllib3/blame/1.25.8/src/urllib3/util/url.py#L219-L227
@@ -121,13 +126,13 @@ class HTTPSession(Session):
         warnings.warn("Deprecated HTTPSession.determine_json_encoding() call", StreamlinkDeprecationWarning, stacklevel=1)
         data = int.from_bytes(sample[:4], "big")
 
-        if data & 0xffffff00 == 0:
+        if data & 0xFFFFFF00 == 0:
             return "UTF-32BE"
-        elif data & 0xff00ff00 == 0:
+        elif data & 0xFF00FF00 == 0:
             return "UTF-16BE"
-        elif data & 0x00ffffff == 0:
+        elif data & 0x00FFFFFF == 0:
             return "UTF-32LE"
-        elif data & 0x00ff00ff == 0:
+        elif data & 0x00FF00FF == 0:
             return "UTF-16LE"
         else:
             return "UTF-8"
@@ -277,8 +282,7 @@ class HTTPSession(Session):
                     raise err from None
                 retries += 1
                 # back off retrying, but only to a maximum sleep time
-                delay = min(retry_max_backoff,
-                            retry_backoff * (2 ** (retries - 1)))
+                delay = min(retry_max_backoff, retry_backoff * (2 ** (retries - 1)))
                 time.sleep(delay)
 
         if schema:

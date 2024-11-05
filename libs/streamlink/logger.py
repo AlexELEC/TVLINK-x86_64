@@ -72,12 +72,15 @@ def _logmethodfactory(level: int, name: str):
     # fix module name that gets read from the call stack in the logging module
     # https://github.com/python/cpython/commit/5ca6d7469be53960843df39bb900e9c3359f127f
     if version_info >= (3, 11):
+
         def method(self, message, *args, **kws):
             if self.isEnabledFor(level):
                 # increase the stacklevel by one and skip the `trace()` call here
                 kws["stacklevel"] = 2
                 self._log(level, message, args, **kws)
+
     else:
+
         def method(self, message, *args, **kws):
             if self.isEnabledFor(level):
                 self._log(level, message, args, **kws)
@@ -203,13 +206,14 @@ def capturewarnings(capture=False):
 
 # noinspection PyShadowingBuiltins,PyPep8Naming
 def basicConfig(
+    *,
     filename: str | Path | None = None,
     filemode: str = "a",
-    stream: IO | None = None,
-    level: str | None = None,
-    format: str = FORMAT_BASE,  # noqa: A002  # TODO: rename to "fmt" (breaking)
-    style: Literal["%", "{", "$"] = FORMAT_STYLE,
+    format: str = FORMAT_BASE,  # noqa: A002
     datefmt: str = FORMAT_DATE,
+    style: Literal["%", "{", "$"] = FORMAT_STYLE,
+    level: str | None = None,
+    stream: IO | None = None,
     remove_base: list[str] | None = None,
     capture_warnings: bool = False,
 ) -> logging.StreamHandler:

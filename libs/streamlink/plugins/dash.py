@@ -10,14 +10,15 @@ from streamlink.utils.url import update_scheme
 log = logging.getLogger(__name__)
 
 
+@pluginmatcher(
+    re.compile(r"dash://(?P<url>\S+)(?:\s(?P<params>.+))?$"),
+)
 @pluginmatcher(re.compile(
-    r"dash://(?P<url>\S+)(?:\s(?P<params>.+))?$",
-))
-@pluginmatcher(re.compile(
-    # URL with explicit scheme, or URL with implicit HTTPS scheme and a path
-    r"(?P<url>[^/]+/\S+\.mpd(?:\?\S*)?)(?:\s(?P<params>.+))?$",
-    re.IGNORECASE,
-))
+        # URL with explicit scheme, or URL with implicit HTTPS scheme and a path
+        r"(?P<url>[^/]+/\S+\.mpd(?:\?\S*)?)(?:\s(?P<params>.+))?$",
+        re.IGNORECASE,
+    ),
+)
 class MPEGDASH(Plugin):
     @classmethod
     def stream_weight(cls, stream):

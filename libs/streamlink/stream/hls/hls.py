@@ -313,7 +313,8 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
         self.live_edge = self.session.options.get("hls-live-edge")
         self.duration_offset_start = int(self.stream.start_offset + (self.session.options.get("hls-start-offset") or 0))
         self.duration_limit = self.stream.duration or (
-            int(self.session.options.get("hls-duration")) if self.session.options.get("hls-duration") else None)
+            int(self.session.options.get("hls-duration")) if self.session.options.get("hls-duration") else None
+        )
         self.hls_live_restart = self.stream.force_restart or self.session.options.get("hls-live-restart")
         self.hls_stream_data = self.session.options.get("hls-segment-stream-data")
         self.hls_segments_queue = self.session.options.get("segments-queue")
@@ -360,7 +361,7 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
         if self.playlist_reload_time_override == "segment" and playlist.segments:
             return playlist.segments[-1].duration
         if self.playlist_reload_time_override == "average" and playlist.segments:
-            return sum(s.duration for s in playlist.segments[-2:]) / 2
+            return sum(s.duration for s in playlist.segments[-2 :]) / 2
         if self.playlist_reload_time_override == "duration" and playlist.targetduration:
             return playlist.targetduration
 
@@ -377,7 +378,7 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
         if first_segment.key and first_segment.key.method != "NONE":
             log.debug("Segments in this playlist are encrypted")
 
-        self.playlist_changed = ([s.num for s in self.playlist_segments] != [s.num for s in segments])
+        self.playlist_changed = [s.num for s in self.playlist_segments] != [s.num for s in segments]
         self.playlist_segments = segments
 
         if not self.playlist_changed:
@@ -417,7 +418,7 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
         d = 0.0
         default = -1
 
-        segments_order = iter(segments) if duration >= 0 else reversed(segments)
+        segments_order = segments if duration >= 0 else reversed(segments)
 
         for segment in segments_order:
             if d >= abs(duration):
@@ -453,16 +454,20 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
             log.debug(f"HLS Stream Data: {self.hls_stream_data}")
             log.debug(f"HLS Live Restart: {self.hls_live_restart}")
             log.debug(f"HLS Segments Queue: {self.hls_segments_queue}")
-            log.debug("; ".join([
-                f"First Sequence: {self.playlist_segments[0].num}",
-                f"Last Sequence: {self.playlist_segments[-1].num}",
-            ]))
-            log.debug("; ".join([
-                f"Start offset: {self.duration_offset_start}",
-                f"Duration Limit: {self.duration_limit}",
-                f"Start Sequence: {self.playlist_sequence}",
-                f"End Sequence: {self.playlist_end}",
-            ]))
+            log.debug(
+                "; ".join([
+                    f"First Sequence: {self.playlist_segments[0].num}",
+                    f"Last Sequence: {self.playlist_segments[-1].num}",
+                ]),
+            )
+            log.debug(
+                "; ".join([
+                    f"Start offset: {self.duration_offset_start}",
+                    f"Duration: {self.duration_limit}",
+                    f"Start Sequence: {self.playlist_sequence}",
+                    f"End Sequence: {self.playlist_end}",
+                ]),
+            )
 
         total_duration = 0
         while not self.closed:
@@ -478,8 +483,8 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
                     log.warning(
                         (
                             f"Skipped segments {self.playlist_sequence}-{segment.num - 1} after playlist reload. "
-                            if offset > 1 else
-                            f"Skipped segment {self.playlist_sequence} after playlist reload. "
+                            if offset > 1
+                            else f"Skipped segment {self.playlist_sequence} after playlist reload. "
                         )
                         + "This is unsupported and will result in incoherent output data.",
                     )

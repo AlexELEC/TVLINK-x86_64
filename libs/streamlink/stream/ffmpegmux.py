@@ -179,9 +179,13 @@ class FFMPEGMuxer(StreamIO):
         self.chunk_size = int(session.options.get("chunk-size"))
 
         self.pipes = [NamedPipe() for _ in self.streams]
-        self.pipe_threads = [threading.Thread(target=self.copy_to_pipe, args=(stream, np, self.chunk_size))
-                             for stream, np in
-                             zip(self.streams, self.pipes)]
+        self.pipe_threads = [
+            threading.Thread(
+                target=self.copy_to_pipe,
+                args=(stream, np),
+            )
+            for stream, np in zip(self.streams, self.pipes)
+        ]
 
         loglevel = session.options.get("ffmpeg-loglevel") or options.pop("loglevel", self.DEFAULT_LOGLEVEL)
         ofmt = session.options.get("ffmpeg-fout") or options.pop("format", self.DEFAULT_OUTPUT_FORMAT)
