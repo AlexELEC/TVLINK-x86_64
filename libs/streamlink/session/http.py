@@ -22,6 +22,9 @@ from streamlink.utils.parse import parse_json, parse_xml
 
 log = logging.getLogger(__name__)
 
+urllib3_logger = logging.getLogger('urllib3')
+urllib3_logger.setLevel(logging.CRITICAL)
+
 try:
     from urllib3.util import create_urllib3_context  # type: ignore[attr-defined]
 except ImportError:  # pragma: no cover

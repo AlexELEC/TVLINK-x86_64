@@ -15,7 +15,7 @@ from streamlink.plugin.plugin import NO_PRIORITY, Matchers, Plugin
 from streamlink.utils.module import exec_module
 
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from _typeshed.importlib import PathEntryFinderProtocol
 
 

@@ -55,7 +55,7 @@ INSERT INTO settings (name, value) VALUES ('stream_retry', NULL);
 INSERT INTO settings (name, value) VALUES ('hls_live_edge', NULL);
 INSERT INTO settings (name, value) VALUES ('stream_segment_threads', NULL);
 INSERT INTO settings (name, value) VALUES ('segments_queue', NULL);
-INSERT INTO settings (name, value) VALUES ('stream_data', NULL);
+INSERT INTO settings (name, value) VALUES ('stream_data', 'true');
 INSERT INTO settings (name, value) VALUES ('hls_playlist_reload_time', NULL);
 INSERT INTO settings (name, value) VALUES ('hls_restart', NULL);
 INSERT INTO settings (name, value) VALUES ('dbg_stream', NULL);

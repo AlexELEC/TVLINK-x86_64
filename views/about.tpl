@@ -9,18 +9,18 @@
 
   <div style="width:50%;margin: 0 auto;text-align:center;">
     <h4 id="version"><b>TVLINK version: {{version}}</b></h4>
-    <p>&nbsp;</p>
     % if is_upd:
+      <p>&nbsp;</p>
       <em id="upd_info">Version <b>{{git_ver}}</b> is available. You can update the program!</em>
       <p></p>
       <button id="btn_upd" class="btn" onClick="server.upd_tvlink()" ><i id="upd_spin" class="fa fa-refresh fa-3x fa-fw"></i></button>
       <p>&nbsp;</p>
     % end
-    <p><a href="https://alexelec.tv"><img src="/styles/logo.png" style="border:0" ></a></p>
+    <p><img src="/styles/logo.png" style="border:0"/></p>
     The program does not broadcast anything.
     TVLINK only caches the streams specified by the user or found in the open Internet access.
-    The program uses the open source code of the project <a href="https://streamlink.github.io/index.html">Streamlink</a>.
-    <p><b><u><a style="color:Black;" href="https://wiki.alexelec.tv/?page_id=51">Program help on wiki.alexelec.tv</a>.</u></b></p>
+    The program uses the open source code of the project <a href="https://streamlink.github.io/index.html" target="_blank">Streamlink</a>.
+    <p><b><u><a style="color:Black;" href="https://wiki.alexelec.tv/wiki-alexelec/tvlink-free-iptv-server" target="_blank">Program documentation on wiki.alexelec.tv</a>.</u></b></p>
     <p>&nbsp;</p>
 
     <table class="table" border="2" >
@@ -63,10 +63,10 @@
     <p><b>LTC:</b> MUV9GjhBRQnRGqNeszYrKDKemNRZ3HfXTM</p>
     <p><b>USDT TRC-20:</b> TNb7QRBZgThP9oRhhenJ4A8Ky5pKbsVYzU</p>
     <p><b>USDT BEP-20:</b> 0xFd2cd18183d1C617E53E57CdF58473F5e4Ac58Be</p>
+    <p><a href="https://t.me/tvlinkae" target="_blank"><img src="/styles/telegram.png" style="width:70px;border:0"/></a></p>
+    Telegram chat: <a href="https://t.me/tvlinkae" target="_blank">t.me/tvlinkae</a>
     <p>&nbsp;</p>
-    Telegram chat: <a href="https://t.me/tvlinkae">t.me/tvlinkae</a>
-    <p><a href="https://t.me/tvlinkae"><img src="/styles/telegram.png" style="border:0" ></a></p>
-    Copyright © 2020 - 2024 all rights reserved to <a href="https://alexelec.tv">Alex@ELEC</a>
+    <p>Copyright © 2020 - 2024 all rights reserved to <a href="https://alexelec.tv" target="_blank">Alex@ELEC</a></p>
     <p>&nbsp;</p>
   </div>
 

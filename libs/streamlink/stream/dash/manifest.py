@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from itertools import count, repeat
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar, overload
-from urllib.parse import urljoin, urlparse, urlsplit, urlunparse, urlunsplit
+from urllib.parse import urljoin, urlparse, urlunparse
 
 from isodate import Duration, parse_datetime, parse_duration  # type: ignore[import]
 
@@ -267,7 +267,7 @@ class MPDNode:
     def base_url(self):
         base_url = self._base_url
         if hasattr(self, "baseURLs") and len(self.baseURLs):
-            base_url = BaseURL.join(base_url, self.baseURLs[0].url)
+            base_url = urljoin(base_url, self.baseURLs[0].url)
         return base_url
 
 
@@ -310,13 +310,12 @@ class MPD(MPDNode):
         self.publishTime = self.attr(
             "publishTime",
             parser=MPDParsers.datetime,
-            required=self.type == "dynamic",
+            default=EPOCH_START,
         )
         self.availabilityStartTime = self.attr(
             "availabilityStartTime",
             parser=MPDParsers.datetime,
             default=EPOCH_START,
-            required=self.type == "dynamic",
         )
         self.availabilityEndTime = self.attr(
             "availabilityEndTime",
@@ -390,24 +389,6 @@ class BaseURL(MPDNode):
         super().__init__(*args, **kwargs)
 
         self.url = (self.text or "").strip()
-
-    @property
-    def is_absolute(self) -> bool:
-        return bool(urlparse(self.url).scheme)
-
-    @staticmethod
-    def join(url: str, other: str) -> str:
-        # if the other URL is an absolute url, then return that
-        if urlparse(other).scheme:
-            return other
-        elif url:
-            parts = list(urlsplit(url))
-            if not parts[2].endswith("/"):
-                parts[2] += "/"
-            url = urlunsplit(parts)
-            return urljoin(url, other)
-        else:
-            return other
 
 
 class Location(MPDNode):
@@ -809,7 +790,7 @@ class SegmentList(_MultipleSegmentBaseType):
         return start
 
     def make_url(self, url: str | None) -> str:
-        return BaseURL.join(self.base_url, url) if url else self.base_url
+        return urljoin(self.base_url, url)
 
 
 class SegmentTemplate(_MultipleSegmentBaseType):
@@ -847,11 +828,11 @@ class SegmentTemplate(_MultipleSegmentBaseType):
                     content=False,
                     byterange=None,
                 )
-        for media_url, num, available_at in self.format_media(ident, base_url, timestamp=timestamp, **kwargs):
+        for media_url, num, duration, available_at in self.format_media(ident, base_url, timestamp=timestamp, **kwargs):
             yield DASHSegment(
                 uri=media_url,
                 num=num,
-                duration=self.duration_seconds,
+                duration=duration,
                 available_at=available_at,
                 init=False,
                 content=True,
@@ -860,7 +841,7 @@ class SegmentTemplate(_MultipleSegmentBaseType):
 
     @staticmethod
     def make_url(base_url: str, url: str) -> str:
-        return BaseURL.join(base_url, url)
+        return urljoin(base_url, url)
 
     def segment_numbers(self, timestamp: datetime | None = None) -> Iterator[tuple[int, datetime]]:
         """
@@ -938,12 +919,11 @@ class SegmentTemplate(_MultipleSegmentBaseType):
             time = self.root.timelines[ident]
             is_initial = time == -1
 
-            publish_time = self.root.publishTime or EPOCH_START
-            threshold = publish_time - self.root.suggestedPresentationDelay
+            threshold = self.root.publishTime - self.root.suggestedPresentationDelay
 
             # transform the timeline into a segment list
             timeline = []
-            available_at = publish_time
+            available_at = self.root.publishTime
 
             # the last segment in the timeline is the most recent one
             # so, work backwards and calculate when each of the segments was
@@ -972,20 +952,22 @@ class SegmentTemplate(_MultipleSegmentBaseType):
         base_url: str,
         timestamp: datetime | None = None,
         **kwargs,
-    ) -> Iterator[tuple[str, int, datetime]]:
+    ) -> Iterator[tuple[str, int, float, datetime]]:
         if self.fmt_media is None:  # pragma: no cover
             return
 
         if not self.segmentTimeline:
             log.debug(f"Generating segment numbers for {self.root.type} playlist: {ident!r}")
+            duration = self.duration_seconds
             for number, available_at in self.segment_numbers(timestamp=timestamp):
                 url = self.make_url(base_url, self.fmt_media(Number=number, **kwargs))
-                yield url, number, available_at
+                yield url, number, duration, available_at
         else:
             log.debug(f"Generating segment timeline for {self.root.type} playlist: {ident!r}")
             for number, segment, available_at in self.segment_timeline(ident):
                 url = self.make_url(base_url, self.fmt_media(Time=segment.t, Number=number, **kwargs))
-                yield url, number, available_at
+                duration = segment.d / self.timescale
+                yield url, number, duration, available_at
 
 
 class SegmentTimeline(MPDNode):
