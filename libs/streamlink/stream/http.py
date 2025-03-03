@@ -80,6 +80,10 @@ class HTTPStream(Stream):
         return self.fd
 
     def close(self):
-        self.res.close()
-        self.fd.close()
+        if hasattr(self.res, "close"):
+            try: self.res.close()
+            except: pass
+        if hasattr(self.fd, "close"):
+            try: self.fd.close()
+            except: pass
 

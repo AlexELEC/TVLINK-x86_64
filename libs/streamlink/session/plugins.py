@@ -114,7 +114,6 @@ class StreamlinkPlugins:
         tDash = {}
         tHls = {}
         tHttp = {}
-        tYouTV = {}
 
         for finder, name, _ in pkgutil.iter_modules([str(path)]):
             lookup = self._load_plugin_from_finder(name, finder=finder)  # type: ignore[arg-type]
@@ -128,26 +127,19 @@ class StreamlinkPlugins:
                 tHls[name] = plugin
             elif name == 'http':
                 tHttp[name] = plugin
-            elif name == 'youtv':
-                tYouTV[name] = plugin
             else:
                 if name in plugins:
                     log.info(f"Plugin {name} is being overridden by {mod.__file__}")
                 plugins[name] = plugin
 
+        if tHls:
+            plugins.update(tHls)
+        if tDash:
+            plugins.update(tDash)
         if tHttp:
             plugins.update(tHttp)
-        if tDash:
-            tDash.update(plugins)
-            plugins = tDash
-        if tHls:
-            tHls.update(plugins)
-            plugins = tHls
-        if tYouTV:
-            tYouTV.update(plugins)
-            plugins = tYouTV
 
-        # order: [youtv, hls, dash, ..., http]
+        # order: [plugins, ..., hls, dash, http]
         return plugins
 
     @staticmethod

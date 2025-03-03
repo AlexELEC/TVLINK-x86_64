@@ -9,11 +9,11 @@ Full documentation is available at https://streamlink.github.io.
 
 """
 
-__version__ = "7.0.0"
+__version__ = "7.1.3"
 __title__ = "streamlink"
 __license__ = "Simplified BSD"
 __author__ = "Streamlink"
-__copyright__ = "Copyright 2024 Streamlink"
+__copyright__ = "Copyright 2025 Streamlink"
 __credits__ = ["https://github.com/streamlink/streamlink/blob/master/AUTHORS"]
 
 from streamlink.api import streams
