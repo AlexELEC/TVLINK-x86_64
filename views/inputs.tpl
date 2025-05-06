@@ -32,7 +32,7 @@
         logo_url = get_logo(row[0], srcName)
       %>
       <td bgcolor="2C3E50">
-        <img src="{{logo_url}}" style="border:0;width:45%;" >
+        <img src="{{logo_url}}" onerror="this.onerror=null;this.src='https://placehold.co/256x256/403838/FFFFFF/png?text=EMPTY';" style="border:0;width:45%;" >
       </td>
       <!-- Map -->
       <td>

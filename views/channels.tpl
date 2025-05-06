@@ -41,7 +41,7 @@
       %>
       <td bgcolor="2C3E50">
         <button class="btn" style="border:0" onClick="server.show_modal_logo('{{ids}}')" >
-          <img id="{{ids}}" src="{{logo_url}}" style="width:60%" >
+          <img id="{{ids}}" src="{{logo_url}}" onerror="this.onerror=null;this.src='https://placehold.co/256x256/403838/FFFFFF/png?text=EMPTY';" style="width:60%" >
         </button>
       </td>
       <!-- Number -->
