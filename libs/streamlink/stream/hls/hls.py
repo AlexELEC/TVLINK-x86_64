@@ -6,7 +6,7 @@ import struct
 from collections.abc import Mapping
 from concurrent.futures import Future
 from datetime import datetime, timedelta
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 from urllib.parse import urlparse
 
 from requests import Response
@@ -26,6 +26,13 @@ from streamlink.utils.crypto import AES, unpad
 from streamlink.utils.formatter import Formatter
 from streamlink.utils.l10n import Language
 from streamlink.utils.times import now
+
+
+if TYPE_CHECKING:
+    try:
+        from typing import Self  # type: ignore[attr-defined]
+    except ImportError:
+        from typing_extensions import Self
 
 
 log = logging.getLogger(".".join(__name__.split(".")[:-1]))
@@ -545,7 +552,7 @@ class HLSStreamReader(FilteredStream, SegmentedStreamReader[HLSSegment, Response
     stream: HLSStream
     buffer: RingBuffer
 
-    def __init__(self, stream: HLSStream):
+    def __init__(self, stream: HLSStream, name: str | None = None):
         self.request_params = dict(stream.args)
         # These params are reserved for internal use
         self.request_params.pop("exception", None)
@@ -553,10 +560,13 @@ class HLSStreamReader(FilteredStream, SegmentedStreamReader[HLSSegment, Response
         self.request_params.pop("timeout", None)
         self.request_params.pop("url", None)
 
-        super().__init__(stream)
+        super().__init__(stream, name=name)
 
 
-class MuxedHLSStream(MuxedStream["HLSStream"]):
+TMuxedHLSStream_co = TypeVar("TMuxedHLSStream_co", bound="HLSStream", covariant=True)
+
+
+class MuxedHLSStream(MuxedStream[TMuxedHLSStream_co]):
     """
     Muxes multiple HLS video and audio streams into one output stream.
     """
@@ -568,7 +578,7 @@ class MuxedHLSStream(MuxedStream["HLSStream"]):
         session: Streamlink,
         video: str,
         audio: str | list[str],
-        hlsstream: type[HLSStream] | None = None,
+        hlsstream: type[TMuxedHLSStream_co] | None = None,
         url_master: str | None = None,
         multivariant: M3U8 | None = None,
         force_restart: bool = False,
@@ -596,8 +606,12 @@ class MuxedHLSStream(MuxedStream["HLSStream"]):
                 tracks.append(audio)
         maps.extend(f"{i}:a" for i in range(1, len(tracks)))
 
-        hlsstream = hlsstream or HLSStream
-        substreams = [hlsstream(session, url, force_restart=force_restart, **kwargs) for url in tracks]
+        # https://github.com/python/mypy/issues/18017
+        TStream: type[TMuxedHLSStream_co] = hlsstream if hlsstream is not None else HLSStream  # type: ignore[assignment]
+        substreams = [
+            TStream(session, url, force_restart=force_restart, name=None if idx == 0 else "audio", **kwargs)
+            for idx, url in enumerate(tracks)
+        ]
         ffmpeg_options = ffmpeg_options or {}
 
         super().__init__(session, *substreams, format="mpegts", maps=maps, **ffmpeg_options)
@@ -624,7 +638,7 @@ class HLSStream(HTTPStream):
     """
 
     __shortname__ = "hls"
-    __reader__ = HLSStreamReader
+    __reader__: ClassVar[type[HLSStreamReader]] = HLSStreamReader
     __parser__: ClassVar[type[M3U8Parser[M3U8[HLSSegment, HLSPlaylist], HLSSegment, HLSPlaylist]]] = M3U8Parser
 
     def __init__(
@@ -633,6 +647,7 @@ class HLSStream(HTTPStream):
         url: str,
         url_master: str | None = None,
         multivariant: M3U8 | None = None,
+        name: str | None = None,
         force_restart: bool = False,
         start_offset: float = 0,
         duration: float | None = None,
@@ -643,6 +658,7 @@ class HLSStream(HTTPStream):
         :param url: The URL of the HLS playlist
         :param url_master: The URL of the HLS playlist's multivariant playlist (deprecated)
         :param multivariant: The parsed multivariant playlist
+        :param name: Optional name suffix for the stream's worker and writer threads
         :param force_restart: Start from the beginning after reaching the playlist's end
         :param start_offset: Number of seconds to be skipped from the beginning
         :param duration: Number of seconds until ending the stream
@@ -652,10 +668,11 @@ class HLSStream(HTTPStream):
         super().__init__(session, url, **kwargs)
         self._url_master = url_master
         self.multivariant = multivariant if multivariant and multivariant.is_master else None
+        self.name = name
         self.force_restart = force_restart
         self.start_offset = start_offset
         self.duration = duration
-        self.reader = self.__reader__(self)
+        self.reader = self.__reader__(self, name=self.name)
 
     def __json__(self):  # noqa: PLW3201
         json = super().__json__()
@@ -714,7 +731,7 @@ class HLSStream(HTTPStream):
         start_offset: float = 0,
         duration: float | None = None,
         **kwargs,
-    ) -> dict[str, HLSStream | MuxedHLSStream]:
+    ) -> dict[str, Self | MuxedHLSStream[Self]]:
         """
         Parse a variant playlist and return its streams.
 
