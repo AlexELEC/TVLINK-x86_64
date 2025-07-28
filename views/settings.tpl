@@ -425,6 +425,19 @@
           </select>
         </td>
       </tr>
+      <!-- Catchup Limit segments on startup -->
+      <tr>
+        <td>
+          <label class="form-control">Catchup Limit segments on startup</label>
+        </td>
+        <td>
+          <select id="vod_start" class="form-control" onchange="server.setting_options('vod_start')" >
+            % for vod_limit in val_count:
+            <option {{'selected' if vod_limit == int(vod_start) else ""}} >{{vod_limit}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
 
     </table>
 
@@ -518,6 +531,19 @@
           <input id="dbg_stream" type="checkbox" onClick="server.dbg_stream()" {{'checked="checked"' if dbg_stream == 'true' else ""}} >
           <span class="slider round"></span>
           </label>
+        </td>
+      </tr>
+      <!-- Catchup Segments Queue Step -->
+      <tr>
+        <td>
+          <label class="form-control">Catchup segments queue Step</label>
+        </td>
+        <td>
+          <select id="vod_queue" class="form-control" onchange="server.setting_options('vod_queue')" >
+            % for vod_q in val_count:
+            <option {{'selected' if vod_q == int(vod_queue) else ""}} >{{vod_q}}</option>
+            % end
+          </select>
         </td>
       </tr>
 

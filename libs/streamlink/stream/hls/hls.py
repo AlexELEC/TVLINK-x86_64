@@ -326,6 +326,8 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
         self.hls_live_restart = self.stream.force_restart or self.session.options.get("hls-live-restart")
         self.hls_stream_data = self.session.options.get("hls-segment-stream-data")
         self.hls_segments_queue = self.session.options.get("segments-queue")
+        self.vod_start = int(self.session.options.get("vod-start") or 0)
+        self.vod_queue_step = int(self.session.options.get("vod-queue-step") or 1)
 
 
     def _fetch_playlist(self) -> Response:
@@ -402,6 +404,18 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
                 self.playlist_sequence = edge_segment.num
             else:
                 self.playlist_sequence = first_segment.num
+                if self.vod_start > 0:
+                    self.playlist_segments = segments[:self.vod_start]
+                    log.debug(f"VOD: start limited to first {self.vod_start} segments")
+                else:
+                    self.playlist_segments = segments
+        else:
+            if self.playlist_end is not None:  # VOD Catchup 
+                next_start = self.playlist_sequence
+                new_segments = [s for s in segments if s.num >= next_start][:self.vod_queue_step]
+                self.playlist_segments = new_segments
+            else:
+                self.playlist_segments = segments
 
     def valid_segment(self, segment: HLSSegment) -> bool:
         return segment.num >= self.playlist_sequence

@@ -280,6 +280,8 @@ class StreamlinkOptions(Options):
             "ffmpeg-start-at-zero": False,
             "segments-queue": 6,
             "chunk-size": 8192,
+            "vod-start": 0,
+            "vod-queue-step": 1,
         })
         self.session = session
 
