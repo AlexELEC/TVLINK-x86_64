@@ -47,6 +47,8 @@ class SegmentedStreamWriter(AwaitableMixin, NamedThread, Generic[TSegment, TResu
     """
     The base writer thread.
     This thread is responsible for fetching segments, processing them and finally writing the data to the buffer.
+    Network fetches happen concurrently via the executor, but writes are strictly serialized
+    in the order segments were enqueued. This guarantees output ordering (head-of-line blocking if a segment stalls).
     """
 
     reader: SegmentedStreamReader[TSegment, TResult]
@@ -71,10 +73,14 @@ class SegmentedStreamWriter(AwaitableMixin, NamedThread, Generic[TSegment, TResu
         self.retries = retries or self.session.options.get("stream-segment-attempts")
         self.threads = threads or self.session.options.get("stream-segment-threads")
         self.timeout = timeout or self.session.options.get("stream-segment-timeout")
+        self.client_info = self.session.options.get("client-info")
 
         size = self.session.options.get("segments-queue")
 
-        self.executor = ThreadPoolExecutor(max_workers=self.threads, thread_name_prefix=f"{self.name}-executor")
+        self.executor = ThreadPoolExecutor(
+            max_workers=self.threads,
+            thread_name_prefix=f"{self.name}-executor"
+        )
         self._queue: queue.Queue[TQueueItem] = queue.Queue(size)
 
     def close(self) -> None:
@@ -85,17 +91,17 @@ class SegmentedStreamWriter(AwaitableMixin, NamedThread, Generic[TSegment, TResu
         if self.closed:  # pragma: no cover
             return
 
-        log.debug("Closing writer thread")
-
+        log.debug(f"{self.client_info} Closing writer thread")
         self.closed = True
         self._wait.set()
-
         self.reader.close()
 
-        # close all connections
+        # drain queue to allow executor shutdown
         while True:
-            try: items = self._queue_get()
-            except: break
+            try:
+                _ = self._queue_get()
+            except Exception:
+                break
 
         self.executor.shutdown(wait=True, cancel_futures=True)
 
@@ -198,6 +204,7 @@ class SegmentedStreamWorker(AwaitableMixin, NamedThread, Generic[TSegment, TResu
         self.writer = reader.writer
         self.stream = reader.stream
         self.session = reader.session
+        self.client_info = self.session.options.get("client-info")
 
     def close(self) -> None:
         """
@@ -207,7 +214,7 @@ class SegmentedStreamWorker(AwaitableMixin, NamedThread, Generic[TSegment, TResu
         if self.closed:  # pragma: no cover
             return
 
-        log.debug("Closing worker thread")
+        log.debug(f"{self.client_info} Closing worker thread")
 
         self.closed = True
         self._wait.set()

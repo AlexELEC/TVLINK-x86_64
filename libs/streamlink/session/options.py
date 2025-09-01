@@ -261,13 +261,14 @@ class StreamlinkOptions(Options):
             "hls-start-offset": 0.0,
             "hls-duration": None,
             "hls-playlist-reload-attempts": 3,
-            "hls-playlist-reload-time": "default", # default, duration, segment, average
+            "hls-playlist-reload-time": "segment", # segment, smart, targetduration
             "hls-segment-queue-threshold": 3,
             "hls-segment-stream-data": False,
             "hls-segment-ignore-names": [],
             "hls-segment-key-uri": None,
             "hls-audio-select": [],
             "dash-manifest-reload-attempts": 3,
+            "ffmpeg-use": True,
             "ffmpeg-ffmpeg": None,
             "ffmpeg-no-validation": True,
             "ffmpeg-verbose": False,
@@ -280,8 +281,9 @@ class StreamlinkOptions(Options):
             "ffmpeg-start-at-zero": False,
             "segments-queue": 6,
             "chunk-size": 8192,
-            "vod-start": 0,
+            "vod-start": 3,
             "vod-queue-step": 1,
+            "client-info": "",
         })
         self.session = session
 

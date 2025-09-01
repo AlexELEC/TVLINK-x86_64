@@ -89,7 +89,7 @@ class Media:
         except LookupError:
             language = self.language
             name = self.name
-            log.warning(f"Unrecognized language for media playlist: {language=!r} {name=!r}")
+            log.debug(f"Unrecognized language for media playlist: {language=!r} {name=!r}")
 
 
 # EXT-X-START

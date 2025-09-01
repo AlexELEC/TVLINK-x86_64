@@ -105,6 +105,9 @@ class FFMPEGMuxer(StreamIO):
 
     @classmethod
     def is_usable(cls, session):
+        ffmpeg_use = session.options.get("ffmpeg-use")
+        if not ffmpeg_use:
+            return None
         return cls.command(session) is not None
 
     @classmethod

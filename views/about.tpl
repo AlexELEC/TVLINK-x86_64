@@ -17,10 +17,10 @@
       <p>&nbsp;</p>
     % end
     <p><img src="/styles/logo.png" style="border:0"/></p>
-    The program does not broadcast anything.
-    TVLINK only caches the streams specified by the user or found in the open Internet access.
-    The program uses the open source code of the project <a href="https://streamlink.github.io/index.html" target="_blank">Streamlink</a>.
-    <p><b><u><a style="color:Black;" href="https://alexelec.github.io/" target="_blank">Program documentation</a>.</u></b></p>
+    This program itself does not broadcast any content.
+    TVLINK only caches streams that are specified by the user or are publicly available on the internet.
+    It is based on the open-source <a href="https://streamlink.github.io/index.html" target="_blank">Streamlink</a> project.
+    <p><b><u><a style="color:Black;" href="https://alexelec.github.io/" target="_blank">Program Documentation</a>.</u></b></p>
     <p>&nbsp;</p>
 
     <table class="table" border="2" >

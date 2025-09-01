@@ -65,7 +65,7 @@
       <!-- Check internet IP -->
       <tr>
         <td>
-          <label class="form-control">Check internet IP</label>
+          <label class="form-control">Check internet (host:port)</label>
         </td>
         <td>
           <input id="check_ip" class="form-control" type="text" value="{{check_net_ip}}" onchange="server.set_checkip()" >
@@ -425,26 +425,6 @@
           </select>
         </td>
       </tr>
-      <!-- Catchup Limit segments on startup -->
-      <tr>
-        <td>
-          <label class="form-control">Catchup Limit segments on startup</label>
-        </td>
-        <td>
-          <select id="vod_start" class="form-control" onchange="server.setting_options('vod_start')" >
-            % for vod_limit in val_count:
-            <option {{'selected' if vod_limit == int(vod_start) else ""}} >{{vod_limit}}</option>
-            % end
-          </select>
-        </td>
-      </tr>
-
-    </table>
-
-    <table class="table" border="2" style="float:right;width:49%;display:block" >
-
-      {{!tbl_head}}
-
       <!-- Segment Threads -->
       <tr>
         <td>
@@ -458,6 +438,13 @@
           </select>
         </td>
       </tr>
+
+    </table>
+
+    <table class="table" border="2" style="float:right;width:49%;display:block" >
+
+      {{!tbl_head}}
+
       <!-- Segments Queue -->
       <tr>
         <td>
@@ -491,7 +478,7 @@
         </td>
         <td>
           <select id="hls_playlist_reload_time" class="form-control" onchange="server.setting_options('hls_playlist_reload_time')" >
-            % for rltime in ['default', 'duration', 'segment', 'average']:
+            % for rltime in ['segment', 'smart', 'targetduration']:
             <option {{'selected' if rltime == hls_playlist_reload_time else ""}} >{{rltime}}</option>
             % end
           </select>
@@ -521,6 +508,32 @@
           </label>
         </td>
       </tr>
+      <!-- VOD Limit segments on startup -->
+      <tr>
+        <td>
+          <label class="form-control">VOD Limit segments on startup</label>
+        </td>
+        <td>
+          <select id="vod_start" class="form-control" onchange="server.setting_options('vod_start')" >
+            % for vod_limit in val_count:
+            <option {{'selected' if vod_limit == int(vod_start) else ""}} >{{vod_limit}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
+      <!-- VOD Segments Queue Step -->
+      <tr>
+        <td>
+          <label class="form-control">VOD segments queue Step</label>
+        </td>
+        <td>
+          <select id="vod_queue" class="form-control" onchange="server.setting_options('vod_queue')" >
+            % for vod_q in val_count:
+            <option {{'selected' if vod_q == int(vod_queue) else ""}} >{{vod_q}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
       <!-- Debug Streams -->
       <tr>
         <td>
@@ -531,19 +544,6 @@
           <input id="dbg_stream" type="checkbox" onClick="server.dbg_stream()" {{'checked="checked"' if dbg_stream == 'true' else ""}} >
           <span class="slider round"></span>
           </label>
-        </td>
-      </tr>
-      <!-- Catchup Segments Queue Step -->
-      <tr>
-        <td>
-          <label class="form-control">Catchup segments queue Step</label>
-        </td>
-        <td>
-          <select id="vod_queue" class="form-control" onchange="server.setting_options('vod_queue')" >
-            % for vod_q in val_count:
-            <option {{'selected' if vod_q == int(vod_queue) else ""}} >{{vod_q}}</option>
-            % end
-          </select>
         </td>
       </tr>
 
