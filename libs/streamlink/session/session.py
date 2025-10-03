@@ -2,20 +2,24 @@ from __future__ import annotations
 
 import logging
 import warnings
-from collections.abc import Mapping
 from functools import lru_cache
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from streamlink import __version__
 from streamlink.exceptions import NoPluginError, PluginError, StreamlinkDeprecationWarning
 from streamlink.logger import StreamlinkLogger
-from streamlink.options import Options
-from streamlink.plugin.plugin import Plugin
 from streamlink.session.http import HTTPSession
 from streamlink.session.options import StreamlinkOptions
 from streamlink.session.plugins import StreamlinkPlugins
 from streamlink.utils.l10n import Localization
 from streamlink.utils.url import update_scheme
+
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from streamlink.options import Options
+    from streamlink.plugin.plugin import Plugin
 
 
 # Ensure that the Logger class returned is Streamslink's for using the API (for backwards compatibility)
@@ -49,6 +53,9 @@ class Streamlink:
         self.options: StreamlinkOptions = StreamlinkOptions(self)
         if options:
             self.options.update(options)
+
+        # Original URL passed by the caller (player) into Streamlink.streams()
+        self._entry_url_original: str | None = None
 
         #: Plugins of this session instance.
         self.plugins: StreamlinkPlugins = StreamlinkPlugins(builtin=plugins_builtin)
@@ -145,6 +152,9 @@ class Streamlink:
         :return: A :class:`dict` of stream names and :class:`Stream <streamlink.stream.Stream>` instances
         """
 
+        # Preserve the original URL exactly as it was passed by the caller
+        self._entry_url_original = url
+
         self._pluginname, pluginclass, resolved_url = self.resolve_url(url)
         plugin = pluginclass(self, resolved_url, options)
 
@@ -197,5 +207,8 @@ class Streamlink:
     def localization(self):
         return Localization(self.get_option("locale"))
 
+    # Expose original entry URL that was passed into streams()
+    def get_entry_url(self) -> str | None:
+        return self._entry_url_original
 
 __all__ = ["Streamlink"]

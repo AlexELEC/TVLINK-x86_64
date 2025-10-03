@@ -319,6 +319,7 @@
       {{!tbl_head}}
       % buf_values = [5,10,20,30,40,50,80,100,150,200]
       % chunk_values = [8192, 16384, 24576, 32768, 65536]
+      % queue_values = range(1,21)
 
       <!-- Ring Buffer -->
       <tr>
@@ -355,6 +356,19 @@
           <select id="stream_timeout" class="form-control" onchange="server.setting_options('stream_timeout')" >
             % for ht_tout in val_times:
             <option {{'selected' if ht_tout == int(stream_timeout) else ""}} >{{ht_tout}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
+      <!-- Stream retry count -->
+      <tr>
+        <td>
+          <label class="form-control">Stream retry count</label>
+        </td>
+        <td>
+          <select id="stream_retry" class="form-control" onchange="server.setting_options('stream_retry')" >
+            % for hl_tout in val_count:
+            <option {{'selected' if hl_tout == int(stream_retry) else ""}} >{{hl_tout}}</option>
             % end
           </select>
         </td>
@@ -412,19 +426,6 @@
           </select>
         </td>
       </tr>
-      <!-- Stream retry count -->
-      <tr>
-        <td>
-          <label class="form-control">Stream retry count</label>
-        </td>
-        <td>
-          <select id="stream_retry" class="form-control" onchange="server.setting_options('stream_retry')" >
-            % for hl_tout in val_count:
-            <option {{'selected' if hl_tout == int(stream_retry) else ""}} >{{hl_tout}}</option>
-            % end
-          </select>
-        </td>
-      </tr>
       <!-- Segment Threads -->
       <tr>
         <td>
@@ -438,13 +439,6 @@
           </select>
         </td>
       </tr>
-
-    </table>
-
-    <table class="table" border="2" style="float:right;width:49%;display:block" >
-
-      {{!tbl_head}}
-
       <!-- Segments Queue -->
       <tr>
         <td>
@@ -452,8 +446,8 @@
         </td>
         <td>
           <select id="segments_queue" class="form-control" onchange="server.setting_options('segments_queue')" >
-            % for ques in ['as threads', '6', '7', '8', '9', '10', '12', '14', '16', '18', '20']:
-            <option {{'selected' if ques == str(segments_queue) else ""}} >{{ques}}</option>
+            % for ques in queue_values:
+            <option {{'selected' if ques == int(segments_queue) else ""}} >{{ques}}</option>
             % end
           </select>
         </td>
@@ -471,6 +465,13 @@
           </select>
         </td>
       </tr>
+
+    </table>
+
+    <table class="table" border="2" style="float:right;width:49%;display:block" >
+
+      {{!tbl_head}}
+
       <!-- HLS Playlist Reload Time -->
       <tr>
         <td>
@@ -508,6 +509,32 @@
           </label>
         </td>
       </tr>
+      <!-- HLS Live buffer multiplier -->
+      <tr>
+        <td>
+          <label class="form-control">HLS Live buffer multiplier</label>
+        </td>
+        <td>
+          <select id="live_buffer" class="form-control" onchange="server.setting_options('live_buffer')" >
+            % for live_buff in val_count:
+            <option {{'selected' if live_buff == int(live_buffer) else ""}} >{{live_buff}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
+      <!-- HLS VOD buffer multiplier -->
+      <tr>
+        <td>
+          <label class="form-control">HLS VOD buffer multiplier</label>
+        </td>
+        <td>
+          <select id="vod_buffer" class="form-control" onchange="server.setting_options('vod_buffer')" >
+            % for vod_buff in val_count:
+            <option {{'selected' if vod_buff == int(vod_buffer) else ""}} >{{vod_buff}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
       <!-- VOD Limit segments on startup -->
       <tr>
         <td>
@@ -517,6 +544,19 @@
           <select id="vod_start" class="form-control" onchange="server.setting_options('vod_start')" >
             % for vod_limit in val_count:
             <option {{'selected' if vod_limit == int(vod_start) else ""}} >{{vod_limit}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
+      <!-- VOD Limit segments in progress -->
+      <tr>
+        <td>
+          <label class="form-control">VOD Limit segments in progress</label>
+        </td>
+        <td>
+          <select id="vod_process" class="form-control" onchange="server.setting_options('vod_process')" >
+            % for vod_p in val_count:
+            <option {{'selected' if vod_p == int(vod_process) else ""}} >{{vod_p}}</option>
             % end
           </select>
         </td>
@@ -532,6 +572,18 @@
             <option {{'selected' if vod_q == int(vod_queue) else ""}} >{{vod_q}}</option>
             % end
           </select>
+        </td>
+      </tr>
+      <!-- Close segment connection -->
+      <tr>
+        <td>
+          <label class="form-control">Close segment connection</label>
+        </td>
+        <td>
+          <label class="switch">
+          <input id="seg_close" type="checkbox" onClick="server.seg_close()" {{'checked="checked"' if seg_close == 'true' else ""}} >
+          <span class="slider round"></span>
+          </label>
         </td>
       </tr>
       <!-- Debug Streams -->
@@ -564,60 +616,6 @@
     <label class="form-control"><b>Streams Proxy:</b></label>
     <input id="str_proxy" size="50%" class="form-control" type="text" value="{{proxy_str}}" onchange="server.set_proxy_stream()"></input>
   </form>
-
-  <!-- FFmpeg -->
-  % if system_ffmpeg:
-  <p>&nbsp;</p>
-  <table width="100%">
-    <tr>
-      <td width="20%"><h4><b>FFmpeg transcode stream:</b></h4></td>
-      <td><label class="switch">
-        <input id="enable_ffmpeg" type="checkbox" onClick="server.set_enable_ffmpeg()" {{'checked="checked"' if ffmpeg_enable == 'true' else ""}} >
-        <span class="slider round"></span> </label>
-      </td>
-    </tr>
-  </table>
-  % end
-
-  % if system_ffmpeg and ffmpeg_enable == 'true':
-  <p>&nbsp;</p>
-  <table class="table" width="100%" border="2" >
-
-    <tr>
-      <th width="3%" >Option</th>
-      <th width="10%" >Value</th>
-    </tr>
-
-    <!-- hwaccel -->
-    <tr>
-      <td >
-        <label class="form-control">Before input</label>
-      </td>
-      <td>
-        <input id="ffmpeg_hwaccel" class="form-control" type="text" value="{{ffmpeg_hwaccel}}" onchange="server.setting_options('ffmpeg_hwaccel')" >
-      </td>
-    </tr>
-    <!-- video encoder -->
-    <tr>
-      <td >
-        <label class="form-control">Video encoder</label>
-      </td>
-      <td>
-        <input id="ffmpeg_video" class="form-control" type="text" value="{{ffmpeg_video}}" onchange="server.setting_options('ffmpeg_video')" >
-      </td>
-    </tr>
-    <!-- audio encoder -->
-    <tr>
-      <td >
-        <label class="form-control">Audio encoder</label>
-      </td>
-      <td>
-        <input id="ffmpeg_audio" class="form-control" type="text" value="{{ffmpeg_audio}}" onchange="server.setting_options('ffmpeg_audio')" >
-      </td>
-    </tr>
-
-  </table>
-  % end
 
   <!-- EPG -->
   <p>&nbsp;</p>

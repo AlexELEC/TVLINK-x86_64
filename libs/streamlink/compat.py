@@ -5,8 +5,7 @@ import inspect
 import os
 import sys
 import warnings
-from collections.abc import Callable, Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 
 from streamlink.exceptions import StreamlinkDeprecationWarning
@@ -17,6 +16,9 @@ try:
     from requests.compat import chardet as charset_normalizer  # type: ignore
 except ImportError:  # pragma: no cover
     import charset_normalizer
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 
 is_darwin = sys.platform == "darwin"

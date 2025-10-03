@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import logging
 import pkgutil
-from collections.abc import Iterator, Mapping
 from pathlib import Path
-from types import ModuleType
 from typing import TYPE_CHECKING
 
 import streamlink.plugins
@@ -16,6 +14,9 @@ from streamlink.utils.module import exec_module
 
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator, Mapping
+    from types import ModuleType
+
     from _typeshed.importlib import PathEntryFinderProtocol
 
 

@@ -1,6 +1,7 @@
 from collections import deque
 from io import BytesIO
 from threading import Event, Lock
+from typing import Optional
 
 
 class Chunk(BytesIO):
@@ -85,6 +86,8 @@ class RingBuffer(Buffer):
         self.event_free = Event()
         self.event_free.set()
         self.event_used = Event()
+        # Exception to propagate to readers immediately (if set)
+        self._exception: Optional[Exception] = None
 
     def _check_events(self):
         if self.is_full:
@@ -92,13 +95,32 @@ class RingBuffer(Buffer):
         else:
             self.event_free.set()
 
-        if self.length > 0:
+        # Wake readers if there is data, or if buffer is closed, or if an exception is pending.
+        if self.length > 0 or self.closed or (self._exception is not None):
             self.event_used.set()
         else:
             self.event_used.clear()
 
+    def set_exception(self, exc: Exception):
+        """
+        Inject an exception into the buffer so that any blocked or future readers
+        will immediately raise it instead of waiting for data or timing out.
+        """
+        with self.buffer_lock:
+            self._exception = exc
+            # Mark closed to stop further writes and to help readers avoid blocking
+            self.closed = True
+            # Update events under lock
+            self._check_events()
+        # Ensure any waiters are woken up right away
+        self.event_used.set()
+        self.event_free.set()
+
     def _read(self, size=-1):
         with self.buffer_lock:
+            # Re-check exception under lock before consuming
+            if self._exception is not None:
+                raise self._exception
             data = Buffer.read(self, size)
 
             self._check_events()
@@ -106,6 +128,10 @@ class RingBuffer(Buffer):
         return data
 
     def read(self, size=-1, block=True, timeout=None):
+        # Fast path: if an exception was injected, raise immediately
+        if self._exception is not None:
+            raise self._exception
+
         if block and not self.closed:
             if not self.event_used.wait(timeout) and self.length == 0:
                 raise OSError(f"Stremlink Thread job Read Buffer timeout: {timeout}")

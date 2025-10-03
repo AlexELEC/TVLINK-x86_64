@@ -18,7 +18,7 @@ class YouTVHLS(HLSStream):
         self._url = url
         self.stats_url = code_url
         self.watch_timeout = int(time()) + 80
-        self.headers = {'user-agent': 'youtv/3.23.13+8004 (Samsung MB2; Android; 6.0.1; Mobile; null; MHC19J.20170619.091635 test-keys; 1920x1008)',
+        self.headers = {'user-agent': 'youtv Lite/3.10.5+5091 (LG MB2; Android; 6.0.1; TV; Ethernet; 1920x1008)',
                         'accept': '*/*'}
 
     @property

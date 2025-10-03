@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 from contextlib import suppress
+from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class ProcessOutput:

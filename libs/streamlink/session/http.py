@@ -7,12 +7,12 @@ import ssl
 import time
 import logging
 import warnings
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import requests.adapters
 import urllib3
 from urllib.parse import urlparse
-from requests import PreparedRequest, Request, Session
+from requests import Request, Session
 from requests.adapters import HTTPAdapter
 
 import streamlink.session.http_useragents as useragents
@@ -39,6 +39,11 @@ try:
     urllib3.disable_warnings(urllib3.exceptions.HeaderParsingError)
 except AttributeError:
     pass
+
+
+if TYPE_CHECKING:
+    from requests import PreparedRequest
+
 
 # urllib3>=2.0.0: enforce_content_length now defaults to True (keep the override for backwards compatibility)
 class _HTTPResponse(urllib3.response.HTTPResponse):
@@ -113,6 +118,11 @@ class HTTPSession(Session):
         self.banlist = self.load_banlist()
 
         self.mount("file://", FileAdapter())
+        # Increase adapter pool sizes to avoid blocking when many concurrent HLS requests are open/closing
+        # Default in requests is 10; raise to 64 for both http and https
+        http_adapter = SSLContextAdapter(pool_connections=64, pool_maxsize=64, max_retries=0)
+        self.mount("http://", http_adapter)
+        self.mount("https://", http_adapter)
 
     @classmethod
     def determine_json_encoding(cls, sample: bytes):
@@ -228,7 +238,7 @@ class HTTPSession(Session):
                 status_code = res.status_code
 
                 if status_code >= 300:
-                    log.debug(f"* Status code {status_code}: {url}")
+                    #log.debug(f"* Status code {status_code}: {url}")
                     try: new_url = res.headers['Location']
                     except: new_url = ''
                     res.close()
@@ -238,7 +248,7 @@ class HTTPSession(Session):
                             if redirects < redirects_max:
                                 if not new_url.startswith("http"):
                                     new_url = f"{urlparse(url).scheme}://{urlparse(url).netloc}{new_url}"
-                                log.debug(f"* Redirect to: {new_url}")
+                                #log.debug(f"* Redirect to: {new_url}")
                                 url = new_url
                                 redirects += 1
                                 continue

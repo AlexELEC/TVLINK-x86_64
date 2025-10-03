@@ -13,7 +13,7 @@ root_dir = os.path.dirname(sys.argv[0])
 logo_dir = os.path.join(root_dir, 'logos')
 logo_tmp = os.path.join(temp_dir, 'logos')
 
-main_url = "https://epg.one"
+main_url = "http://epg.one"
 
 parser = argparse.ArgumentParser(description='Download and convert picons for TVLINK!')
 parser.add_argument("-n", "--noconv", action='store_true', help="Don't convert picon names")
