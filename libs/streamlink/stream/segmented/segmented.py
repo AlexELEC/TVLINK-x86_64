@@ -85,7 +85,7 @@ class SegmentedStreamWriter(AwaitableMixin, NamedThread, Generic[TSegment, TResu
             max_workers=self.threads,
             thread_name_prefix=f"{self.name}-executor"
         )
-        self._queue: queue.Queue[TQueueItem] = queue.Queue(size)
+        self._queue: queue.Queue[TQueueItem | None] = queue.Queue(size)
 
     def close(self) -> None:
         """
@@ -138,10 +138,10 @@ class SegmentedStreamWriter(AwaitableMixin, NamedThread, Generic[TSegment, TResu
             except queue.Full:  # pragma: no cover
                 continue
 
-    def _queue_put(self, item: TQueueItem) -> None:
+    def _queue_put(self, item: TQueueItem | None) -> None:
         self._queue.put(item, block=True, timeout=1)
 
-    def _queue_get(self) -> TQueueItem:
+    def _queue_get(self) -> TQueueItem | None:
         return self._queue.get(block=True, timeout=0.5)
 
     @staticmethod

@@ -84,6 +84,19 @@
           </select>
         </td>
       </tr>
+      <!-- Streamlink session pool -->
+      <tr>
+        <td >
+          <label class="form-control">Streamlink session pool</label>
+        </td>
+        <td>
+          <select id="session_pool" class="form-control" onchange="server.setting_options('session_pool')" >
+            % for pl in range(1,21):
+            <option {{'selected' if pl == int(session_pool) else ""}} >{{pl}}</option>
+            % end
+          </select>
+        </td>
+      </tr>
       <!-- Auth Login -->
       % if auth_webui == 'true':
       <tr>
@@ -139,6 +152,16 @@
         </td>
         <td><label class="switch">
           <input id="del_ch_broken" type="checkbox" onClick="server.del_broken_channel()" {{'checked="checked"' if del_ch == 'true' else ""}} >
+          <span class="slider round"></span></label>
+        </td>
+      </tr>
+      <!-- Use FFmpeg muxer -->
+      <tr>
+        <td>
+          <label class="form-control">Use FFmpeg muxer</label>
+        </td>
+        <td><label class="switch">
+          <input id="ffmpeg_use" type="checkbox" onClick="server.ffmpeg_use_switch()" {{'checked="checked"' if ffmpeg_use == 'true' else ""}} >
           <span class="slider round"></span></label>
         </td>
       </tr>
@@ -317,7 +340,7 @@
     <table class="table" border="2" style="float:left;width:49%;display:block" >
 
       {{!tbl_head}}
-      % buf_values = [5,10,20,30,40,50,80,100,150,200]
+      % buf_values = [3,5,8,10,15,20,30,40,50,80,100]
       % chunk_values = [8192, 16384, 24576, 32768, 65536]
       % queue_values = range(1,21)
 
