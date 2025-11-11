@@ -61,7 +61,6 @@ class StreamlinkOptions(Options):
             "hls-live-edge": 3,
             "hls-live-restart": False,
             "hls-start-offset": 0.0,
-            "hls-duration": None,
             "hls-playlist-reload-attempts": 3,
             "hls-playlist-reload-time": "segment", # segment, smart, targetduration
             "hls-segment-queue-threshold": 3,
@@ -187,9 +186,6 @@ class StreamlinkOptions(Options):
 
         return inner
 
-    # TODO: py39 support end: remove explicit dummy context binding of static method
-    _factory_set_http_attr_key_equals_value = _factory_set_http_attr_key_equals_value.__get__(object)
-    _factory_set_deprecated = _factory_set_deprecated.__get__(object)
 
     # ----
 

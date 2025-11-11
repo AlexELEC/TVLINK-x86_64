@@ -9,6 +9,8 @@
   % include('picons.tpl')
   % include('edit-epg.tpl')
   % include('src-conf.tpl')
+  % include('add-epg.tpl')
+  % include('add-profile.tpl')
   <p>&nbsp;</p>
 
   <script>
@@ -28,9 +30,9 @@
             location.reload(true);
         }
     }
-    function delEPG_map() {
-        if (confirm("Delete EPG manual mapping channels?")) {
-            server.delEPG_map();
+    function delEPG_map(mode) {
+        if (confirm("Delete EPG " + mode + " mapping channels?")) {
+            server.delEPG_map(mode);
         }
     }
     function delEpgSource(epgName) {
@@ -595,28 +597,15 @@
   <!-- EPG sources -->
 
   <h4><b>XMLTV EPG sources</b></h4>
+
+  <p>&nbsp;</p>
+  <form id="epg_user_form" class="form-inline">
+    <button id="btn_add_epg" type="button" onClick="server.add_epg_source()">Add EPG</button>
+  </form>
   <p>&nbsp;</p>
 
-  <!-- EPG Static sources -->
+  <table class="table" width="100%" border="2" id="epg_user_table" style={{"display:block" if in_srcs_epg else "display:none"}} >
 
-  % checked_epg_static = in_grps_epg.get('Static')
-  <table width="100%">
-    <tr>
-      <td width="20%"><b>EPG Static sources:</b></td>
-      <td><label class="switch">
-        <input id="epgbox_static_src" type="checkbox" onClick="server.epg_static_src_grp()" {{'checked="checked"' if checked_epg_static == 1 else ""}} >
-        <span class="slider round"></span> </label>
-      </td>
-    </tr>
-  </table>
-
-  % if checked_epg_static == 1:
-  <p>&nbsp;</p>
-  % end
-
-  <table class="table" width="100%" border="2" id="epg_static_table" style={{"display:block" if checked_epg_static == 1 else "display:none"}} >
-
-    <% epg_tbl_head = '''
     <tr>
       <th width="4%" >Name</th>
       <th width="2%" >Enable</th> 
@@ -624,105 +613,17 @@
       <th width="3%" >File date</th>
       <th width="3%" >Update</th>
       <th width="3%" >Channels</th>
-    </tr>'''
-    %>
+    </tr>
 
-    {{!epg_tbl_head}}
-
-    <!-- epg_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-xmlDate, 5-updDate, 6-srcUrl, 7-noDate, 8-links ] -->
+    <!-- epg_sources [ 0-srcName, 1-enabled, 2-prio, 3-xmlDate, 4-updDate, 5-srcUrl, 6-noDate, 7-links, 8-strFrom, 9-strTo ] -->
     % for row in in_srcs_epg:
-    % if row[2] == 'Static':
     <tr>
       <!-- Name -->
       % srcName = row[0]
       % ids = f'hrf_{srcName}'
       <td>
-        <a id={{ids}} {{f'href=/epginputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
-        <button class="btn" onClick="server.show_edit_epg_url('{{srcName}}')" ><i class="fa fa-pencil-square-o" style="font-size:26px;color:blue" ></i></button>
-      </td>
-      <!-- Enable -->
-      <td><label class="switch">
-        % ids = f'src_{srcName}'
-        <input id={{ids}} type="checkbox" onClick="server.click_switch_epg('{{ids}}')" {{'checked="checked"' if row[1] == 1 else ""}} >
-        <span class="slider round"></span></label>
-      </td>
-      <!-- Prio -->
-      % ids = f'pri_{srcName}'
-      <td><select id={{ids}} class="form-control" onchange="server.change_select_epg('{{ids}}')" >
-        % for prio in val_prio:
-          <option {{'selected' if prio == row[3] else ""}} >{{prio}}</option>
-        % end
-        </select>
-      </td>
-      <!-- XMLTV file Date -->
-      % ids = f'fdt_{srcName}'
-      <td>
-        <label id={{ids}} >{{row[4]}}</label>
-      </td>
-      <!-- Update -->
-      % ids_bt = f'ubt_{srcName}'
-      % ids_lb = f'ulb_{srcName}'
-      % updDate = row[5]
-      % updColor = 'black'
-      % if updDate.endswith('#'):
-        % updDate = updDate.replace('#', '').strip()
-        % updColor = 'red'
-      % end
-      <td>
-        <button class="btn" onClick="server.upd_epgsrc_button('{{ids_lb}}')" ><i id={{ids_bt}} class="fa fa-refresh" style="color:{{updColor}}"></i></button>
-        <label id={{ids_lb}} >{{updDate}}</label>
-      </td>
-      <!-- Channels in EPG -->
-      % ids = f'lks_{srcName}'
-      <td>
-        <label id={{ids}} >{{row[8]}}</label>
-      </td>
-    </tr>
-    % end
-    % end
-  </table>
-
-  % if checked_epg_static == 1:
-  <p>&nbsp;</p>
-  % end
-
-  <!-- EPG User sources -->
-
-  % include('add-epg.tpl')
-
-  % checked_epg_user = in_grps_epg.get('User')
-  <table width="100%">
-    <tr>
-      <td width="20%"><b>EPG Custom sources:</b></td>
-      <td><label class="switch">
-        <input id="epgbox_user_src" type="checkbox" onClick="server.epg_user_src_grp()" {{'checked="checked"' if checked_epg_user == 1 else ""}} >
-        <span class="slider round"></span> </label>
-      </td>
-    </tr>
-  </table>
-
-  % if checked_epg_user == 1:
-  <p>&nbsp;</p>
-  <form id="epg_user_form" class="form-inline">
-    <button id="btn_add_epg" type="button" onClick="server.add_epg_source()">Add EPG</button>
-  </form>
-  <p>&nbsp;</p>
-  % end
-
-  <table class="table" width="100%" border="2" id="epg_user_table" style={{"display:block" if checked_epg_user == 1 and is_epg else "display:none"}} >
-
-    {{!epg_tbl_head}}
-
-    <!-- epg_sources [ 0-srcName, 1-enabled, 2-grpName, 3-prio, 4-xmlDate, 5-updDate, 6-srcUrl, 7-noDate, 8-links ] -->
-    % for row in in_srcs_epg:
-    % if row[2] == 'User':
-    <tr>
-      <!-- Name -->
-      % srcName = row[0]
-      % ids = f'hrf_{srcName}'
-      <td>
-        <a id={{ids}} {{f'href=/epginputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
-        <button class="btn" onClick="server.show_epg_info('{{srcName}}')" ><i class="fa fa-info-circle" style="font-size:26px;color:blue" ></i></button>
+        <a id={{ids}} {{f'href=/epginputs/{srcName}' if row[1] == 1 and row[7] > 0 else ""}} >{{srcName}}</a>
+        <button class="btn" onClick="server.show_edit_epg('{{srcName}}')" ><i class="fa fa-wrench" style="font-size:26px;color:blue" ></i></button>
         <button class="btn" onClick="delEpgSource('{{srcName}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
       </td>
       <!-- Enable -->
@@ -735,19 +636,19 @@
       % ids = f'pri_{srcName}'
       <td><select id={{ids}} class="form-control" onchange="server.change_select_epg('{{ids}}')" >
         % for prio in val_prio:
-          <option {{'selected' if prio == row[3] else ""}} >{{prio}}</option>
+          <option {{'selected' if prio == row[2] else ""}} >{{prio}}</option>
         % end
         </select>
       </td>
       <!-- XMLTV file Date -->
       % ids = f'fdt_{srcName}'
       <td>
-        <label id={{ids}} >{{row[4]}}</label>
+        <label id={{ids}} >{{row[3]}}</label>
       </td>
       <!-- Update -->
       % ids_bt = f'ubt_{srcName}'
       % ids_lb = f'ulb_{srcName}'
-      % updDate = row[5]
+      % updDate = row[4]
       % updColor = 'black'
       % if updDate.endswith('#'):
         % updDate = updDate.replace('#', '').strip()
@@ -760,28 +661,25 @@
       <!-- Channels in EPG -->
       % ids = f'lks_{srcName}'
       <td>
-        <label id={{ids}} >{{row[8]}}</label>
+        <label id={{ids}} >{{row[7]}}</label>
       </td>
     </tr>
     % end
-    % end
   </table>
 
-  % if checked_epg_user == 1 or checked_epg_static == 1:
+  % if in_srcs_epg:
   <p>&nbsp;</p>
   % end
 
-  <form class="form-inline" style={{"display:block" if checked_epg_static == 1 or checked_epg_user == 1 else "display:none"}}>
+  <form class="form-inline" style={{"display:block" if in_srcs_epg else "display:none"}}>
     <button id="btn_create_epg" type="button" onClick="createEPG()">Create EPG</button>
-    <button id="btn_clean_epg" type="button" style="margin-left:2%;" onClick="delEPG_map()">Clean manual EPG mapping</button>
+    <button id="btn_clean_epg_auto" type="button" style="margin-left:2%;" onClick="delEPG_map('auto')">Clean auto EPG mapping</button>
+    <button id="btn_clean_epg_manl" type="button" style="margin-left:2%;" onClick="delEPG_map('manual')">Clean manual EPG mapping</button>
   </form>
 
   <p>&nbsp;</p>
-  <p>&nbsp;</p>
 
   <!-- User Profiles -->
-
-  % include('add-profile.tpl')
 
   <h4><b>User Profiles</b></h4>
   <p>&nbsp;</p>

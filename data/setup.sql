@@ -1,19 +1,9 @@
 PRAGMA foreign_keys = off;
 BEGIN TRANSACTION;
 
--- Table: epg_groups
-DROP TABLE IF EXISTS epg_groups;
-CREATE TABLE epg_groups (grpName BLOB, enabled BOOLEAN DEFAULT (0));
-INSERT INTO epg_groups (grpName, enabled) VALUES ('Static', 0);
-INSERT INTO epg_groups (grpName, enabled) VALUES ('User', 0);
-
 -- Table: epg_sources
 DROP TABLE IF EXISTS epg_sources;
-CREATE TABLE epg_sources (srcName BLOB UNIQUE, enabled BOOLEAN DEFAULT (0), grpName BLOB, prio INT DEFAULT (10) NOT NULL, xmlDate BLOB, updDate BLOB, srcUrl BLOB, noDate BLOB, links INT DEFAULT (0) NOT NULL);
-INSERT INTO epg_sources (srcName, enabled, grpName, prio, xmlDate, updDate, srcUrl, noDate, links) VALUES ('IptvxONE', 0, 'Static', 1, '', '', 'https://iptvx.one/EPG', '', 0);
-INSERT INTO epg_sources (srcName, enabled, grpName, prio, xmlDate, updDate, srcUrl, noDate, links) VALUES ('IptvxTV', 0, 'Static', 2, '', '', 'http://epg.g-cdn.app/xmltv.xml.gz', '', 0);
-INSERT INTO epg_sources (srcName, enabled, grpName, prio, xmlDate, updDate, srcUrl, noDate, links) VALUES ('EdemTV', 0, 'Static', 3, '', '', 'http://epg.one/edem.xml.gz', '', 0);
-INSERT INTO epg_sources (srcName, enabled, grpName, prio, xmlDate, updDate, srcUrl, noDate, links) VALUES ('EpgTODAY', 0, 'Static', 4, '', '', 'http://downloads.epg.today/free/FreeRu-Cis.xml.gz', '', 0);
+CREATE TABLE epg_sources (srcName BLOB UNIQUE, enabled BOOLEAN DEFAULT (0), prio INT DEFAULT (1) NOT NULL, xmlDate BLOB, updDate BLOB, srcUrl BLOB, noDate BLOB, links INT DEFAULT (0) NOT NULL, strFrom BLOB, strTo BLOB);
 
 -- Table: input_groups
 DROP TABLE IF EXISTS input_groups;

@@ -1000,9 +1000,6 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
         self.segment_queue_timing_threshold_factor = self.session.options.get("hls-segment-queue-threshold")
         self.live_edge = self.session.options.get("hls-live-edge")
         self.duration_offset_start = int(self.stream.start_offset + (self.session.options.get("hls-start-offset") or 0))
-        self.duration_limit = self.stream.duration or (
-            int(self.session.options.get("hls-duration")) if self.session.options.get("hls-duration") else None
-        )
         self.hls_live_restart = self.stream.force_restart or self.session.options.get("hls-live-restart")
         self.hls_stream_data = self.session.options.get("hls-segment-stream-data")
         self.hls_segments_queue = self.session.options.get("segments-queue")
@@ -2032,13 +2029,11 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
             log.debug(
                 "; ".join([
                     f"{self.client_info} Start offset: {self.duration_offset_start}",
-                    f"Duration: {self.duration_limit}",
                     f"Start Sequence: {self.playlist_sequence}",
                     f"End Sequence: {self.playlist_end}",
                 ]),
             )
 
-        total_duration = 0
         while not self.closed:
             # Empty window protection check
             if (
@@ -2200,11 +2195,6 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
                     pass
                 yield segment
                 queued = True
-
-                total_duration += segment.duration
-                if self.duration_limit and total_duration >= self.duration_limit:
-                    log.info(f"{self.client_info} Stopping stream early after {self.duration_limit}")
-                    return
 
                 if self.closed:  # pragma: no cover
                     return
@@ -2856,7 +2846,6 @@ class MuxedHLSStream(MuxedStream[TMuxedHLSStream_co]):
         video: str,
         audio: str | list[str],
         hlsstream: type[TMuxedHLSStream_co] | None = None,
-        url_master: str | None = None,
         multivariant: M3U8 | None = None,
         force_restart: bool = False,
         ffmpeg_options: Mapping[str, Any] | None = None,
@@ -2867,7 +2856,6 @@ class MuxedHLSStream(MuxedStream[TMuxedHLSStream_co]):
         :param video: Video stream URL
         :param audio: Audio stream URL or list of URLs
         :param hlsstream: The :class:`HLSStream` class of each sub-stream
-        :param url_master: The URL of the HLS playlist's multivariant playlist (deprecated)
         :param multivariant: The parsed multivariant playlist
         :param force_restart: Start from the beginning after reaching the playlist's end
         :param ffmpeg_options: Additional keyword arguments passed to :class:`ffmpegmux.FFMPEGMuxer`
@@ -2886,22 +2874,23 @@ class MuxedHLSStream(MuxedStream[TMuxedHLSStream_co]):
         # https://github.com/python/mypy/issues/18017
         TStream: type[TMuxedHLSStream_co] = hlsstream if hlsstream is not None else HLSStream  # type: ignore[assignment]
         substreams = [
-            TStream(session, url, force_restart=force_restart, name=None if idx == 0 else "audio", **kwargs)
+            TStream(
+                session,
+                url,
+                multivariant=multivariant,
+                force_restart=force_restart,
+                name=None if idx == 0 else "audio",
+                **kwargs,
+            )
             for idx, url in enumerate(tracks)
         ]
         ffmpeg_options = ffmpeg_options or {}
 
         super().__init__(session, *substreams, format="mpegts", maps=maps, **ffmpeg_options)
-        self._url_master = url_master
         self.multivariant = multivariant if multivariant and multivariant.is_master else None
 
-    @property
-    def url_master(self):
-        """Deprecated"""
-        return self.multivariant.uri if self.multivariant and self.multivariant.uri else self._url_master
-
     def to_manifest_url(self):
-        url = self.multivariant.uri if self.multivariant and self.multivariant.uri else self.url_master
+        url = self.multivariant.uri if self.multivariant and self.multivariant.uri else None
 
         if url is None:
             return super().to_manifest_url()
@@ -2922,33 +2911,27 @@ class HLSStream(HTTPStream):
         self,
         session: Streamlink,
         url: str,
-        url_master: str | None = None,
         multivariant: M3U8 | None = None,
         name: str | None = None,
         force_restart: bool = False,
         start_offset: float = 0,
-        duration: float | None = None,
         **kwargs,
     ):
         """
         :param session: Streamlink session instance
         :param url: The URL of the HLS playlist
-        :param url_master: The URL of the HLS playlist's multivariant playlist (deprecated)
         :param multivariant: The parsed multivariant playlist
         :param name: Optional name suffix for the stream's worker and writer threads
         :param force_restart: Start from the beginning after reaching the playlist's end
         :param start_offset: Number of seconds to be skipped from the beginning
-        :param duration: Number of seconds until ending the stream
         :param kwargs: Additional keyword arguments passed to :meth:`requests.Session.request`
         """
 
         super().__init__(session, url, **kwargs)
-        self._url_master = url_master
         self.multivariant = multivariant if multivariant and multivariant.is_master else None
         self.name = name
         self.force_restart = force_restart
         self.start_offset = start_offset
-        self.duration = duration
         self.reader = self.__reader__(self, name=self.name)
 
     def __json__(self):  # noqa: PLW3201
@@ -2964,13 +2947,8 @@ class HLSStream(HTTPStream):
 
         return json
 
-    @property
-    def url_master(self):
-        """Deprecated"""
-        return self.multivariant.uri if self.multivariant and self.multivariant.uri else self._url_master
-
     def to_manifest_url(self):
-        url = self.multivariant.uri if self.multivariant and self.multivariant.uri else self.url_master
+        url = self.multivariant.uri if self.multivariant and self.multivariant.uri else None
 
         if url is None:
             return super().to_manifest_url()
@@ -3013,7 +2991,6 @@ class HLSStream(HTTPStream):
         force_restart: bool = False,
         name_fmt: str | None = None,
         start_offset: float = 0,
-        duration: float | None = None,
         **kwargs,
     ) -> dict[str, Self | MuxedHLSStream[Self]]:
         """
@@ -3027,7 +3004,6 @@ class HLSStream(HTTPStream):
         :param force_restart: Start at the first segment even for a live stream
         :param name_fmt: A format string for the name, allowed format keys are: name, pixels, bitrate
         :param start_offset: Number of seconds to be skipped from the beginning
-        :param duration: Number of second until ending the stream
         :param kwargs: Additional keyword arguments passed to :class:`HLSStream`, :class:`MuxedHLSStream`,
                        or :py:meth:`requests.Session.request`
         """
@@ -3186,7 +3162,6 @@ class HLSStream(HTTPStream):
                     multivariant=multivariant,
                     force_restart=force_restart,
                     start_offset=start_offset,
-                    duration=duration,
                     **kwargs,
                 )
             else:
@@ -3196,7 +3171,6 @@ class HLSStream(HTTPStream):
                     multivariant=multivariant,
                     force_restart=force_restart,
                     start_offset=start_offset,
-                    duration=duration,
                     **kwargs,
                 )
 

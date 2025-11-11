@@ -31,11 +31,13 @@
       % ids = 'mnl_' + row[0]
       <td>
         <select id="{{ids}}" class="form-control" onchange="server.epg_manual_set('{{ids}}', '{{srcName}}')" >
-        % for epgNames in dataListEPGchls:
-          % if not row[3]:
-            <option {{'selected' if epgNames == '' else ""}} >{{epgNames}}</option>
-          % else:
+        % if row[3]:
+          % for epgNames in dataListEPGchls:
             <option {{'selected' if epgNames == row[3] else ""}} >{{epgNames}}</option>
+          % end
+        % else:
+          % for epgNames in dataListEPGchls:
+            <option>{{epgNames}}</option>
           % end
         % end
         </select>
