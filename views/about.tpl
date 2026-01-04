@@ -56,7 +56,7 @@
     <p><a href="https://t.me/tvlinkae" target="_blank"><img src="/styles/telegram.png" style="width:70px;border:0"/></a></p>
     Telegram chat: <a href="https://t.me/tvlinkae" target="_blank">t.me/tvlinkae</a>
     <p>&nbsp;</p>
-    <p>Copyright © 2020 - 2025 all rights reserved to <a href="https://alexelec.github.io/" target="_blank">Alex@ELEC</a></p>
+    <p>Copyright © 2020 - 2026 all rights reserved to <a href="https://alexelec.github.io/" target="_blank">Alex@ELEC</a></p>
     <p>&nbsp;</p>
   </div>
 
