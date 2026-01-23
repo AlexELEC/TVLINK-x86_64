@@ -21,10 +21,12 @@ from streamlink.validate._validate import validate
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
+    from _typeshed import SupportsLen
+
 
 # String related validators
 
-_validator_length_ops: Mapping[str, tuple[Callable, str]] = {
+_validator_length_ops: Mapping[Literal["lt", "le", "eq", "ge", "gt"], tuple[Callable[[int, int], bool], str]] = {
     "lt": (operator.lt, "Length must be <{number}, but value is {value}"),
     "le": (operator.le, "Length must be <={number}, but value is {value}"),
     "eq": (operator.eq, "Length must be =={number}, but value is {value}"),
@@ -62,8 +64,8 @@ def validator_length(
         schema.validate([1, 2, 3])  # raises ValidationError
     """
 
-    def length(value):
-        func, msg = _validator_length_ops.get(op, "ge")
+    def length(value: SupportsLen):
+        func, msg = _validator_length_ops.get(op) or _validator_length_ops["ge"]
         if not func(len(value), number):
             raise ValidationError(
                 msg,
@@ -608,7 +610,9 @@ def validator_parse_json(*args, **kwargs) -> TransformSchema:
     :raise ValidationError: On parsing error
     """
 
-    return TransformSchema(_parse_json, *args, **kwargs, exception=ValidationError, schema=None)
+    kwargs.update(exception=ValidationError, schema=None)
+
+    return TransformSchema(_parse_json, *args, **kwargs)
 
 
 def validator_parse_html(*args, **kwargs) -> TransformSchema:
@@ -628,7 +632,9 @@ def validator_parse_html(*args, **kwargs) -> TransformSchema:
     :raise ValidationError: On parsing error
     """
 
-    return TransformSchema(_parse_html, *args, **kwargs, exception=ValidationError, schema=None)
+    kwargs.update(exception=ValidationError, schema=None)
+
+    return TransformSchema(_parse_html, *args, **kwargs)
 
 
 def validator_parse_xml(*args, **kwargs) -> TransformSchema:
@@ -648,7 +654,9 @@ def validator_parse_xml(*args, **kwargs) -> TransformSchema:
     :raise ValidationError: On parsing error
     """
 
-    return TransformSchema(_parse_xml, *args, **kwargs, exception=ValidationError, schema=None)
+    kwargs.update(exception=ValidationError, schema=None)
+
+    return TransformSchema(_parse_xml, *args, **kwargs)
 
 
 def validator_parse_qsd(*args, **kwargs) -> TransformSchema:
@@ -670,6 +678,9 @@ def validator_parse_qsd(*args, **kwargs) -> TransformSchema:
 
     def parser(*_args, **_kwargs):
         validate(AnySchema(str, bytes), _args[0])
-        return _parse_qsd(*_args, **_kwargs, exception=ValidationError, schema=None)
+
+        _kwargs.update(exception=ValidationError, schema=None)
+
+        return _parse_qsd(*_args, **_kwargs)
 
     return TransformSchema(parser, *args, **kwargs)

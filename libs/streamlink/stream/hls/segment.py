@@ -17,6 +17,7 @@ log = logging.getLogger(".".join(__name__.split(".")[:-1]))
 
 
 _MEDIA_LANGUAGE_CODES_RESERVED_LOCAL = re.compile(r"^q[a-t][a-z]$")
+_MEDIA_LANGUAGE_CODES_PRIVATE_USE_SUBTAGS = re.compile(r"^[a-z]{2,3}-x-\S+$")
 
 
 class Resolution(NamedTuple):
@@ -84,7 +85,11 @@ class Media:
         self._parse_language()
 
     def _parse_language(self):
-        if self.language is None or _MEDIA_LANGUAGE_CODES_RESERVED_LOCAL.match(self.language):
+        if (
+            self.language is None
+            or _MEDIA_LANGUAGE_CODES_RESERVED_LOCAL.match(self.language)
+            or _MEDIA_LANGUAGE_CODES_PRIVATE_USE_SUBTAGS.match(self.language)
+        ):
             return
 
         try:

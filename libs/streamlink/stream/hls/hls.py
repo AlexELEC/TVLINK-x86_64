@@ -1004,6 +1004,7 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
         self.hls_segments_queue = self.session.options.get("segments-queue")
         # Growth suppression in Smart mode
         self.growth_min_seg_in_queue: int = 2
+        self.growth_target_queue_duration: float = 8.0 # Target stock in queue (sec)
         # Live buffer target multiplier (in segments' mean seconds)
         self.live_buffer_mult = float(self.session.options.get("live-buffer-mult") or 2.0)
         # VOD buffer target multiplier (in segments' mean seconds)
@@ -1814,6 +1815,7 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
                 buf_now = 0.0
             if buf_now > 0.0:
                 self._buf_was_positive = True
+
             # Track continuous negative interval start/stop
             if buf_now < 0.0:
                 try:
@@ -1827,6 +1829,7 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
                 self._buf_negative_since = None
                 self._buf_prev_negative = False
 
+            # 1. Check for timed out segments (stuck downloads)
             timed_out: list[tuple[int, float, float]] = []
             with self._inflight_lock:
                 for num, (t_enq, dur) in list(self._inflight_segments.items()):
@@ -1858,8 +1861,17 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
                         f"elapsed={elapsed:.2f}s > dur={dur:.2f}s; buf={buf_now:.1f}s. Continue..."
                     )
 
-            # --- Secondary threshold block (enhanced with GAP window logic) ---
+            # 2. Secondary threshold block (Negative events / GAP window)
             if self._buf_was_positive and buf_now < 0.0:
+                # Ignore minor drops if there are segments in the queue.
+                # If the buffer deficit is small (> -1.5 sec) and there are active downloads, we don't consider this a failure.
+                try:
+                    if self._inflight_count() > 0 and buf_now > -1.5:
+                        log.debug(f"{self.client_info} => Ignore Negative buffer event: buf={buf_now:.2f}s > -1.5s")
+                        return False
+                except Exception:
+                    pass
+
                 # GAP condition (fixed window semantics):
                 # - If within the active window the number of negative transitions reaches the max -> stop.
                 window_limit_s = self._buf_negative_long_threshold_s
@@ -1891,7 +1903,7 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
                     events_count = len(self._buf_negative_events)
                     log.debug(
                         f"{self.client_info} => Negative buffer event #{events_count} "
-                        f"in current {window_limit_s:.0f}s window"
+                        f"in current {window_limit_s:.0f}s window (buf={buf_now:.2f}s)"
                     )
                     if events_count >= max_events:
                         # Threshold reached -> stop (no need to manually clear; stream teardown will reset state)
@@ -1913,7 +1925,7 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
                     )
                     return True
 
-            # --- Tertiary threshold: buffer stayed negative longer than the "queue timing" threshold ---
+            # 3. Tertiary threshold: buffer stayed negative longer than the "queue timing" threshold
             # Uses the exact same time window as _segment_queue_timing_threshold_reached().
             try:
                 neg_since = self._buf_negative_since
@@ -2574,11 +2586,19 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
                 if mode == "growth":
                     try:
                         inflight = self._inflight_count()
-                        if inflight >= self.growth_min_seg_in_queue:
+
+                        # Dynamic calculation of the required number of segments.
+                        required_segs = int(self.growth_target_queue_duration / max(0.5, float(mean_dur)))
+
+                        # Always keep the minimum (default 2), even if the segments are very long
+                        threshold = max(self.growth_min_seg_in_queue, required_segs)
+
+                        if inflight >= threshold:
                             # Suppress growth mode; keep NORMAL pacing until in-flight depth drains.
                             mode = "normal"
                             log.debug(
-                                f"{self.client_info} -- Smart growth suppressed: inflight={inflight} >= required={self.growth_min_seg_in_queue}"
+                                f"{self.client_info} -- Smart growth suppressed: inflight={inflight} >= required={threshold} "
+                                f"(target={self.growth_target_queue_duration}s / avg_seg={mean_dur:.2f}s)"
                             )
                     except Exception:
                         pass
