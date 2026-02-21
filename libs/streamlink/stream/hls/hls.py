@@ -20,6 +20,7 @@ from requests import Response
 from requests.exceptions import ChunkedEncodingError, ConnectionError, ContentDecodingError, InvalidSchema
 
 from streamlink.exceptions import StreamError
+from streamlink.logger import getLogger
 from streamlink.stream.ffmpegmux import FFMPEGMuxer, MuxedStream
 from streamlink.stream.filtered import FilteredStream
 from streamlink.stream.hls.m3u8 import M3U8Parser, parse_m3u8
@@ -37,18 +38,16 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from concurrent.futures import Future
 
+    from typing_extensions import Self
+
     from streamlink.buffers import RingBuffer
     from streamlink.session import Streamlink
     from streamlink.stream.hls.m3u8 import M3U8
     from streamlink.stream.hls.segment import ByteRange, HLSPlaylist, Key, Map, Media
 
-    try:
-        from typing import Self  # type: ignore[attr-defined]
-    except ImportError:
-        from typing_extensions import Self
 
+log = getLogger(".".join(__name__.split(".")[:-1]))
 
-log = logging.getLogger(".".join(__name__.split(".")[:-1]))
 
 # --- Minimal noise filter: drop "Closing worker/writer thread" messages (substring match) when enabled ---
 class _ClosingNoiseFilter(logging.Filter):
@@ -3054,8 +3053,8 @@ class HLSStream(HTTPStream):
                 res.close()
 
         stream_name: str | None
-        stream: HLSStream | MuxedHLSStream
-        streams: dict[str, HLSStream | MuxedHLSStream] = {}
+        stream: Self | MuxedHLSStream[Self]
+        streams: dict[str, Self | MuxedHLSStream[Self]] = {}
         client_info = session.options.get("client-info")
 
         for playlist in multivariant.playlists:

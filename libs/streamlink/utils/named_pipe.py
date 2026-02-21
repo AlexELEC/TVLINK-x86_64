@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import abc
-import logging
 import os
 import random
 import tempfile
@@ -10,6 +9,7 @@ from contextlib import suppress
 from pathlib import Path
 
 from streamlink.compat import is_win32
+from streamlink.logger import getLogger
 
 
 try:
@@ -18,7 +18,7 @@ except ImportError:
     pass
 
 
-log = logging.getLogger(__name__)
+log = getLogger(__name__)
 
 _lock = threading.Lock()
 _id = 0
@@ -65,7 +65,7 @@ class NamedPipePosix(NamedPipeBase):
         self.fifo = open(self.path, self.mode)
 
     def write(self, data):
-        return self.fifo.write(data)
+        return self.fifo.write(data)  # type: ignore
 
     def close(self):
         try:

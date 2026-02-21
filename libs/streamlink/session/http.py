@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 import os
 import re
 import sys
@@ -7,10 +8,13 @@ import ssl
 import time
 import logging
 import warnings
-from typing import TYPE_CHECKING, Any
+from http.cookiejar import MozillaCookieJar
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
 import requests.adapters
 import urllib3
+import urllib3.util.connection as urllib3_util_connection
 from urllib.parse import urlparse
 from requests import Request, Session
 from requests.adapters import HTTPAdapter
@@ -45,6 +49,9 @@ if TYPE_CHECKING:
     from requests import PreparedRequest
 
 
+_original_allowed_gai_family = urllib3_util_connection.allowed_gai_family  # type: ignore[attr-defined]
+
+
 # urllib3>=2.0.0: enforce_content_length now defaults to True (keep the override for backwards compatibility)
 class _HTTPResponse(urllib3.response.HTTPResponse):
     def __init__(self, *args, **kwargs):
@@ -68,8 +75,8 @@ class _HTTPResponse(urllib3.response.HTTPResponse):
 
 
 # override all urllib3.response.HTTPResponse references in requests.adapters.HTTPAdapter.send
-urllib3.connectionpool.HTTPConnectionPool.ResponseCls = _HTTPResponse  # type: ignore[attr-defined]
-requests.adapters.HTTPResponse = _HTTPResponse  # type: ignore[misc]
+urllib3.connectionpool.HTTPConnectionPool.ResponseCls = _HTTPResponse
+requests.adapters.HTTPResponse = _HTTPResponse
 
 
 # Never convert percent-encoded characters to uppercase in urllib3>=1.25.8.
@@ -164,6 +171,47 @@ class HTTPSession(Session):
     def xml(cls, res, *args, **kwargs):
         """Parses XML from a response."""
         return parse_xml(res.text, *args, **kwargs)
+
+    def set_interface(self, interface: str | None) -> None:
+        for adapter in self.adapters.values():
+            if not isinstance(adapter, HTTPAdapter):
+                continue
+            if not interface:
+                adapter.poolmanager.connection_pool_kw.pop("source_address", None)
+            else:
+                # https://docs.python.org/3/library/socket.html#socket.create_connection
+                adapter.poolmanager.connection_pool_kw.update(source_address=(interface, 0))
+
+    # noinspection PyMethodMayBeStatic
+    def set_address_family(self, family: socket.AddressFamily | None = None) -> None:
+        if family is None:
+            urllib3_util_connection.allowed_gai_family = _original_allowed_gai_family  # type: ignore[attr-defined]
+        elif family == socket.AF_INET:
+            urllib3_util_connection.allowed_gai_family = lambda: socket.AF_INET  # type: ignore[attr-defined]
+        elif family == socket.AF_INET6:  # pragma: no branch
+            urllib3_util_connection.allowed_gai_family = lambda: socket.AF_INET6  # type: ignore[attr-defined]
+
+    def disable_dh(self, disable: bool = True) -> None:
+        adapter: HTTPAdapter
+        if disable:
+            adapter = TLSNoDHAdapter()
+        else:
+            adapter = HTTPAdapter()
+        previous = cast("HTTPAdapter", self.adapters.get("https://", adapter))
+        adapter.poolmanager.connection_pool_kw.update(previous.poolmanager.connection_pool_kw)
+        self.mount("https://", adapter)
+
+    def set_cookies_from_file(self, file: Path | str):
+        path = Path(file).expanduser().resolve()
+        if not path.is_file():
+            raise FileNotFoundError(f"Error while loading cookies from file: '{path}' is not a valid cookies file path")
+
+        try:
+            cookiejar = MozillaCookieJar(filename=str(path), delayload=False)
+            cookiejar.load()
+        except Exception as err:
+            raise OSError(f"Error while loading cookies from file: {err}") from err
+        self.cookies.update(cookiejar)
 
     def resolve_url(self, url):
         """Resolves any redirects and returns the final URL."""

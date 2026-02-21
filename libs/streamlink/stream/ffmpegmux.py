@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import concurrent.futures
-import logging
 import re
 import subprocess
 import sys
@@ -13,6 +12,7 @@ from shutil import which
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TextIO, TypeVar
 
 from streamlink import StreamError
+from streamlink.logger import getLogger
 from streamlink.stream.stream import Stream, StreamIO
 from streamlink.utils.named_pipe import NamedPipe
 from streamlink.utils.processoutput import ProcessOutput
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from streamlink.utils.named_pipe import NamedPipeBase
 
 
-log = logging.getLogger(__name__)
+log = getLogger(__name__)
 
 _lock_resolve_command = threading.Lock()
 
@@ -136,7 +136,7 @@ class FFMPEGMuxer(StreamIO):
                     break
 
         if resolved and validate:
-            log.trace(f"Querying FFmpeg version: {[resolved, '-version']}")  # type: ignore[attr-defined]
+            log.trace(f"Querying FFmpeg version: {[resolved, '-version']}")
             versionoutput = FFmpegVersionOutput([resolved, "-version"], timeout=cls.FFMPEG_VERSION_TIMEOUT)
             if not versionoutput.run():
                 log.error("Could not validate FFmpeg!")
@@ -287,7 +287,7 @@ class FFMPEGMuxer(StreamIO):
             ]
             concurrent.futures.wait(futures, return_when=concurrent.futures.ALL_COMPLETED)
 
-        if self.errorlog is not sys.stderr and self.errorlog is not subprocess.DEVNULL:
+        if self.errorlog is not sys.stderr and not isinstance(self.errorlog, int):
             with suppress(OSError):
                 self.errorlog.close()
 

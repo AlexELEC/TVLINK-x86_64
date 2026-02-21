@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import shutil
 import tempfile
@@ -15,6 +14,7 @@ from time import time
 from typing import TYPE_CHECKING, Any
 
 from streamlink.compat import is_win32
+from streamlink.logger import getLogger
 
 
 if TYPE_CHECKING:
@@ -22,17 +22,17 @@ if TYPE_CHECKING:
 
 
 if is_win32:
-    xdg_cache = os.environ.get("APPDATA", os.path.expanduser("~"))
+    xdg_cache = Path(os.environ.get("APPDATA") or Path.home())
 else:
-    xdg_cache = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
+    xdg_cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
 
-# TODO: fix macOS path and deprecate old one (with fallback logic)
-CACHE_DIR = Path(xdg_cache) / "streamlink"
+# TODO: fix Windows and macOS paths, and deprecate old one (with fallback logic)
+CACHE_DIR = xdg_cache / "streamlink"
 
 WRITE_DEBOUNCE_TIME = 3.0
 
 
-log = logging.getLogger(__name__)
+log = getLogger(__name__)
 
 
 def _atomic(fn):
@@ -54,6 +54,7 @@ class Cache:
         self,
         filename: str | Path,
         key_prefix: str = "",
+        disabled: bool = False,
     ):
         """
         Caches Python values as JSON and prunes expired entries.
@@ -68,7 +69,7 @@ class Cache:
         self._cache_orig: dict[str, dict[str, Any]] = {}
         self._cache: dict[str, dict[str, Any]] = {}
 
-        self._loaded = False
+        self._loaded = self._disabled = bool(disabled)
         self._lock = RLock()
         self._timer: Timer | None = None
 
@@ -86,7 +87,6 @@ class Cache:
         self._cache_orig.clear()
         self._cache.clear()
 
-        # noinspection PyUnresolvedReferences
         log.trace(f"Loading cache file: {self.filename}")
 
         try:
@@ -116,10 +116,9 @@ class Cache:
     def _schedule_save(self):
         if self._timer:
             self._timer.cancel()
-        if not self._dirty:
+        if self._disabled or not self._dirty:
             return
 
-        # noinspection PyUnresolvedReferences
         log.trace(f"Scheduling write to cache file: {WRITE_DEBOUNCE_TIME:.1f}s")
         self._timer = Timer(WRITE_DEBOUNCE_TIME, self._save)
         self._timer.daemon = True
@@ -130,10 +129,9 @@ class Cache:
     def _save(self):
         if self._timer:
             self._timer.cancel()
-        if not self._dirty:
+        if self._disabled or not self._dirty:
             return
 
-        # noinspection PyUnresolvedReferences
         log.trace(f"Writing to cache file: {self.filename}")
 
         fd = None
@@ -147,7 +145,7 @@ class Cache:
         except Exception as err:
             if fd:
                 with suppress(OSError):
-                    os.unlink(fd.name)
+                    Path(fd.name).unlink()
             log.error(f"Error while writing to cache file: {err}")
         else:
             self._cache_orig.clear()

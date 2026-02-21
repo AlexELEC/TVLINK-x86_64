@@ -1,13 +1,13 @@
-import logging
 import re
 
+from streamlink.logger import getLogger
 from streamlink.plugin import Plugin, pluginmatcher
 from streamlink.plugin.plugin import parse_params
 from streamlink.stream.http import HTTPStream
 from streamlink.utils.url import update_scheme
 
 
-log = logging.getLogger(__name__)
+log = getLogger(__name__)
 
 @pluginmatcher(
     re.compile(r"httpstream://(?P<url>\S+)(?:\s(?P<params>.+))?$"),
@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 class HTTPStreamPlugin(Plugin):
     def _get_streams(self):
         data = self.match.groupdict()
-        url = update_scheme("https://", data.get("url"), force=False)
+        url = update_scheme("https://", str(data.get("url", "")), force=False)
         params = parse_params(data.get("params"))
         log.debug(f"URL={url}; params={params}")
 

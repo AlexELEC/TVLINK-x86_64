@@ -83,13 +83,13 @@ class num(Generic[_TNum]):
     def __call__(self, value: Any) -> _TNum:
         val: _TNum = self.numtype(value)
 
-        if self.ge is not None and val < self.ge:
+        if self.ge is not None and not (val >= self.ge):
             raise ValueError(f"{self.__name__} value must be >={self.ge}, but is {val}")
-        if self.gt is not None and val <= self.gt:
+        if self.gt is not None and not (val > self.gt):
             raise ValueError(f"{self.__name__} value must be >{self.gt}, but is {val}")
-        if self.le is not None and val > self.le:
+        if self.le is not None and not (val <= self.le):
             raise ValueError(f"{self.__name__} value must be <={self.le}, but is {val}")
-        if self.lt is not None and val >= self.lt:
+        if self.lt is not None and not (val < self.lt):
             raise ValueError(f"{self.__name__} value must be <{self.lt}, but is {val}")
 
         return val

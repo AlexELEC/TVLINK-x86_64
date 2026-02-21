@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import logging
 import pkgutil
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import streamlink.plugins
+from streamlink.logger import getLogger
 from streamlink.options import Arguments
 
 # noinspection PyProtectedMember
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from _typeshed.importlib import PathEntryFinderProtocol
 
 
-log = logging.getLogger(".".join(__name__.split(".")[:-1]))
+log = getLogger(".".join(__name__.split(".")[:-1]))
 
 # The path to Streamlink's built-in plugins
 _PLUGINS_PATH = Path(streamlink.plugins.__path__[0])
@@ -117,7 +117,8 @@ class StreamlinkPlugins:
         tHttp = {}
 
         for finder, name, _ in pkgutil.iter_modules([str(path)]):
-            lookup = self._load_plugin_from_finder(name, finder=finder)  # type: ignore[arg-type]
+            finder = cast("PathEntryFinderProtocol", finder)
+            lookup = self._load_plugin_from_finder(name, finder=finder)
             if lookup is None:
                 continue
             mod, plugin = lookup

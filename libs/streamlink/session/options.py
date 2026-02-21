@@ -5,12 +5,8 @@ from pathlib import Path
 from socket import AF_INET, AF_INET6
 from typing import TYPE_CHECKING, Any, ClassVar
 
-import urllib3.util.connection as urllib3_util_connection
-from requests.adapters import HTTPAdapter
-
 from streamlink.exceptions import StreamlinkDeprecationWarning
 from streamlink.options import Options
-from streamlink.session.http import TLSNoDHAdapter
 from streamlink.utils.url import update_scheme
 
 
@@ -22,17 +18,17 @@ if TYPE_CHECKING:
 
 _session_file = str(Path(__file__).parent / "session.py")
 
-_original_allowed_gai_family = urllib3_util_connection.allowed_gai_family  # type: ignore[attr-defined]
 
-
-def _get_deprecation_stacklevel_offset():
-    """Deal with stacklevels of both session.{g,s}et_option() and session.options.{g,s}et() calls"""
+def _get_deprecation_stacklevel_offset(offset: int = 0) -> int:
+    """Deal with stacklevels of both session.{get_option,set_option}() and session.options.{get,set}() calls"""
     from inspect import currentframe  # noqa: PLC0415
 
-    frame = currentframe().f_back.f_back
-    offset = 0
+    frame = currentframe()
+    ignoreframes = 2
     while frame:
-        if frame.f_code.co_filename == _session_file and frame.f_code.co_name in ("set_option", "get_option"):
+        if ignoreframes > 0:
+            ignoreframes -= 1
+        elif frame.f_code.co_filename == _session_file and frame.f_code.co_name in ("set_option", "get_option"):
             offset += 1
             break
         frame = frame.f_back
@@ -111,7 +107,7 @@ class StreamlinkOptions(Options):
             warnings.warn(
                 "The `https-proxy` option has been deprecated in favor of a single `http-proxy` option",
                 StreamlinkDeprecationWarning,
-                stacklevel=4 + _get_deprecation_stacklevel_offset(),
+                stacklevel=_get_deprecation_stacklevel_offset(4),
             )
 
     # ---- getters
@@ -126,26 +122,24 @@ class StreamlinkOptions(Options):
     # ---- setters
 
     def _set_interface(self, key, value):
-        for adapter in self.session.http.adapters.values():
-            if not isinstance(adapter, HTTPAdapter):
-                continue
-            if not value:
-                adapter.poolmanager.connection_pool_kw.pop("source_address", None)
-            else:
-                # https://docs.python.org/3/library/socket.html#socket.create_connection
-                adapter.poolmanager.connection_pool_kw.update(source_address=(value, 0))
+        self.session.http.set_interface(interface=value)
         self.set_explicit(key, None if not value else value)
 
     def _set_ipv4_ipv6(self, key, value):
-        self.set_explicit(key, value)
-        if not value:
-            urllib3_util_connection.allowed_gai_family = _original_allowed_gai_family  # type: ignore[attr-defined]
-        elif key == "ipv4":
-            self.set_explicit("ipv6", False)
-            urllib3_util_connection.allowed_gai_family = lambda: AF_INET  # type: ignore[attr-defined]
-        else:
-            self.set_explicit("ipv4", False)
-            urllib3_util_connection.allowed_gai_family = lambda: AF_INET6  # type: ignore[attr-defined]
+        match key, value:
+            case "ipv4", True:
+                self.session.http.set_address_family(family=AF_INET)
+                self.set_explicit("ipv4", True)
+                self.set_explicit("ipv6", False)
+            case "ipv6", True:
+                self.session.http.set_address_family(family=AF_INET6)
+                self.set_explicit("ipv4", False)
+                self.set_explicit("ipv6", True)
+            # only unset if the key's value is True
+            case _ if self.get_explicit(key):
+                self.session.http.set_address_family(family=None)
+                self.set_explicit("ipv4", False)
+                self.set_explicit("ipv6", False)
 
     def _set_http_proxy(self, key, value):
         self.session.http.proxies["http"] \
@@ -153,17 +147,16 @@ class StreamlinkOptions(Options):
             = update_scheme("https://", value, force=False)  # fmt: skip
         self._deprecate_https_proxy(key)
 
+    def _set_http_cookies_files(self, _, value):
+        for item in list(value):
+            self.session.http.set_cookies_from_file(item)
+
     def _set_http_attr(self, key, value):
         setattr(self.session.http, self._OPTIONS_HTTP_ATTRS[key], value)
 
     def _set_http_disable_dh(self, key, value):
+        self.session.http.disable_dh(disable=bool(value))
         self.set_explicit(key, value)
-        if value:
-            adapter = TLSNoDHAdapter()
-        else:
-            adapter = HTTPAdapter()
-
-        self.session.http.mount("https://", adapter)
 
     @staticmethod
     def _factory_set_http_attr_key_equals_value(delimiter: str) -> Callable[[StreamlinkOptions, str, Any], None]:
@@ -181,7 +174,7 @@ class StreamlinkOptions(Options):
             warnings.warn(
                 f"`{key}` has been deprecated in favor of the `{name}` option",
                 StreamlinkDeprecationWarning,
-                stacklevel=3 + _get_deprecation_stacklevel_offset(),
+                stacklevel=_get_deprecation_stacklevel_offset(3),
             )
 
         return inner
@@ -217,6 +210,7 @@ class StreamlinkOptions(Options):
         "ipv6": _set_ipv4_ipv6,
         "http-proxy": _set_http_proxy,
         "https-proxy": _set_http_proxy,
+        "http-cookies-files": _set_http_cookies_files,
         "http-cookies": _factory_set_http_attr_key_equals_value(";"),
         "http-headers": _factory_set_http_attr_key_equals_value(";"),
         "http-query-params": _factory_set_http_attr_key_equals_value("&"),

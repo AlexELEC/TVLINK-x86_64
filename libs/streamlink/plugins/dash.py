@@ -1,13 +1,13 @@
-import logging
 import re
 
+from streamlink.logger import getLogger
 from streamlink.plugin import Plugin, pluginmatcher
 from streamlink.plugin.plugin import parse_params, stream_weight
 from streamlink.stream.dash import DASHStream
 from streamlink.utils.url import update_scheme
 
 
-log = logging.getLogger(__name__)
+log = getLogger(__name__)
 
 
 @pluginmatcher(
@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 )
 class MPEGDASH(Plugin):
     @classmethod
-    def stream_weight(cls, stream):
+    def stream_weight(cls, stream: str) -> tuple[float, str]:
         match = re.match(r"^(?:(.*)\+)?(?:a(\d+)k)$", stream)
         if match and match.group(1) and match.group(2):
             weight, group = stream_weight(match.group(1))
@@ -34,7 +34,7 @@ class MPEGDASH(Plugin):
 
     def _get_streams(self):
         data = self.match.groupdict()
-        url = update_scheme("https://", data.get("url"), force=False)
+        url = update_scheme("https://", str(data.get("url", "")), force=False)
         params = parse_params(data.get("params"))
         log.debug(f"URL={url}; params={params}")
 

@@ -1,14 +1,14 @@
-import logging
 import re
 from time import time
 from base64 import b64decode
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
 
+from streamlink.logger import getLogger
 from streamlink.plugin import Plugin, pluginmatcher
 from streamlink.stream.hls import HLSStream
 
-log = logging.getLogger(__name__)
+log = getLogger(__name__)
 
 class YouTVHLS(HLSStream):
     __shortname__ = "hls-youtv"

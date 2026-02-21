@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import copy
 import itertools
-import logging
 from collections import defaultdict
 from contextlib import contextmanager, suppress
 from time import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from requests import Response
 
 from streamlink.exceptions import PluginError, StreamError
+from streamlink.logger import getLogger
 from streamlink.stream.dash.manifest import MPD, freeze_timeline
 from streamlink.stream.dash.segment import DASHSegment
 from streamlink.stream.ffmpegmux import FFMPEGMuxer
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from streamlink.stream.dash.manifest import Representation
 
 
-log = logging.getLogger(".".join(__name__.split(".")[:-1]))
+log = getLogger(".".join(__name__.split(".")[:-1]))
 
 
 class DASHStreamWriter(SegmentedStreamWriter[DASHSegment, Response]):
@@ -152,7 +152,7 @@ class DASHStreamWorker(SegmentedStreamWorker[DASHSegment, Response]):
         self.reader.buffer.wait_free()
         log.debug(f"Reloading manifest {self.reader.ident!r}")
         res = self.session.http.get(
-            self.mpd.url,
+            cast("str", self.mpd.url),
             exception=StreamError,
             retries=self.manifest_reload_retries,
             **self.stream.args,
@@ -166,6 +166,11 @@ class DASHStreamWorker(SegmentedStreamWorker[DASHSegment, Response]):
         )
 
         new_rep = new_mpd.get_representation(self.reader.ident)
+        if not new_rep:
+            log.error(f"Failed to find matching DASH representation: {self.reader.ident!r}")
+            self.close()
+            return False
+
         with freeze_timeline(new_mpd):
             changed = len(list(itertools.islice(new_rep.segments(), 1))) > 0
 
