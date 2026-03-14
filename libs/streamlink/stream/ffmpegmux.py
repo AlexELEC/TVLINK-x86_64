@@ -65,18 +65,18 @@ class MuxedStream(Stream, Generic[TSubstreams_co]):
         # only update the maps values if they haven't been set
         update_maps = not maps
         for substream in self.substreams:
-            log.debug("Opening {0} substream".format(substream.shortname()))
+            log.debug("Opening %s substream", substream.shortname())
             if update_maps:
                 maps.append(len(fds))
             fds.append(substream and substream.open())
 
         for i, subtitle in enumerate(self.subtitles.items()):
             language, substream = subtitle
-            log.debug("Opening {0} subtitle stream".format(substream.shortname()))
+            log.debug("Opening %s subtitle stream", substream.shortname())
             if update_maps:
                 maps.append(len(fds))
             fds.append(substream and substream.open())
-            metadata["s:s:{0}".format(i)] = ["language={0}".format(language)]
+            metadata[f"s:s:{i}"] = [f"language={language}"]
 
         self.options["metadata"] = metadata
         self.options["maps"] = maps
@@ -136,11 +136,11 @@ class FFMPEGMuxer(StreamIO):
                     break
 
         if resolved and validate:
-            log.trace(f"Querying FFmpeg version: {[resolved, '-version']}")
+            log.trace("Querying FFmpeg version: %r", [resolved, "-version"])
             versionoutput = FFmpegVersionOutput([resolved, "-version"], timeout=cls.FFMPEG_VERSION_TIMEOUT)
             if not versionoutput.run():
                 log.error("Could not validate FFmpeg!")
-                log.error(f"Unexpected FFmpeg version output while running {[resolved, '-version']}")
+                log.error("Unexpected FFmpeg version output while running %r", [resolved, "-version"])
                 resolved = None
             else:
                 cls.FFMPEG_VERSION = versionoutput.version
@@ -236,11 +236,11 @@ class FFMPEGMuxer(StreamIO):
 
         for stream, data in metadata.items():
             for datum in data:
-                stream_id = ":{0}".format(stream) if stream else ""
-                self._cmd.extend(["-metadata{0}".format(stream_id), datum])
+                stream_id = f":{stream}" if stream else ""
+                self._cmd.extend([f"-metadata{stream_id}", datum])
 
         self._cmd.extend(["-f", ofmt, outpath])
-        log.debug(f"ffmpeg command: {self._cmd!r}")
+        log.debug("ffmpeg command: %r", self._cmd)
 
         if session.options.get("ffmpeg-verbose-path"):
             self.errorlog = Path(session.options.get("ffmpeg-verbose-path")).expanduser().open("w")

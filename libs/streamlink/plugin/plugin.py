@@ -8,7 +8,7 @@ import time
 from collections.abc import Iterable, Mapping
 from contextlib import suppress
 from functools import partial
-from typing import TYPE_CHECKING, Any, ClassVar, List, Literal, NamedTuple, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, TypeVar
 
 import requests.cookies
 
@@ -22,6 +22,7 @@ from streamlink.stream.stream import Stream
 
 
 if TYPE_CHECKING:
+    import builtins
     from collections.abc import Callable, Iterator, MutableMapping
     from http.cookiejar import Cookie
 
@@ -210,7 +211,7 @@ class Matcher(NamedTuple):
 MType = TypeVar("MType")
 
 
-class _MCollection(List[MType]):
+class _MCollection(list[MType]):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._names: dict[str, MType] = {}
@@ -236,7 +237,7 @@ class Matchers(_MCollection[Matcher]):
             self._names[matcher.name] = matcher
 
 
-class Matches(_MCollection[Union[re.Match, None]]):
+class Matches(_MCollection[re.Match | None]):
     def update(self, matchers: Matchers, value: str) -> tuple[re.Pattern[str] | None, re.Match[str] | None]:
         matches = [(matcher, matcher.pattern.match(value)) for matcher in matchers]
 
@@ -460,17 +461,17 @@ class Plugin(abc.ABC, metaclass=_PluginMeta):
             if existing:
                 existing_stream_type = type(existing).shortname()
                 if existing_stream_type != stream_type:
-                    name = "{0}_{1}".format(name, stream_type)
+                    name = f"{name}_{stream_type}"
 
                 if name in streams:
-                    name = "{0}_alt".format(name)
+                    name = f"{name}_alt"
                     num_alts = len(list(filter(lambda n: n.startswith(name), streams.keys())))
 
                     # We shouldn't need more than 2 alt streams
                     if num_alts >= 2:
                         continue
                     elif num_alts > 0:
-                        name = "{0}{1}".format(name, num_alts + 1)
+                        name = f"{name}{num_alts + 1}"
 
             # Validate stream name and discard the stream if it's bad.
             match = re.match(r"([A-z0-9_+]+)", name)
@@ -572,12 +573,13 @@ class Plugin(abc.ABC, metaclass=_PluginMeta):
             expires = default_expires
             if cookie_dict["expires"]:
                 expires = int(cookie_dict["expires"] - time.time())
-            key = "__cookie:{0}:{1}:{2}:{3}".format(
+            key = ":".join([
+                "__cookie",
                 cookie.name,
                 cookie.domain,
                 cookie.port_specified and cookie.port or "80",
                 cookie.path_specified and cookie.path or "*",
-            )
+            ])
             self.cache.set(key, cookie_dict, expires)
             saved.append(cookie.name)
 
@@ -786,7 +788,7 @@ def pluginargument(
         argument_name=argument_name,
     )
 
-    def decorator(cls: Type[Plugin]) -> Type[Plugin]:
+    def decorator(cls: builtins.type[Plugin]) -> builtins.type[Plugin]:
         if not issubclass(cls, Plugin):
             raise TypeError(f"{repr(cls)} is not a Plugin")  # noqa: RUF010  # builtins.repr gets monkeypatched in tests
         cls.arguments.add(arg)

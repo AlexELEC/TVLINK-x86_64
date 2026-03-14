@@ -97,7 +97,7 @@ class Media:
         except LookupError:
             language = self.language
             name = self.name
-            log.debug(f"Unrecognized language for media playlist: {language=!r} {name=!r}")
+            log.debug("Unrecognized language for media playlist: language=%r name=%r", language, name)
 
 
 # EXT-X-START
@@ -112,6 +112,7 @@ class StreamInfo(NamedTuple):
     program_id: str | None  # version < 6
     codecs: list[str]
     resolution: Resolution | None
+    framerate: float | None
     audio: str | None
     video: str | None
     subtitles: str | None
