@@ -31,17 +31,10 @@
     % rowID = 'row_' + row[0]
     <tr id="{{rowID}}" >
       <!-- Logo -->
-      <%
-        ids = 'ico_' + row[0]
-        import os, sys
-        root_dir = os.path.dirname(sys.argv[0])
-        sys.path.append(root_dir)
-        from utils import get_logo
-        logo_url = get_logo(row[0])
-      %>
+      % ids = 'ico_' + row[0]
       <td bgcolor="2C3E50">
         <button class="btn" style="border:0" onClick="server.show_modal_logo('{{ids}}')" >
-          <img id="{{ids}}" src="{{logo_url}}" onerror="this.onerror=null;this.src='https://placehold.co/256x256/403838/FFFFFF/png?text=EMPTY';" style="width:60%" >
+          <img id="{{ids}}" src="/logo_proxy/{{row[0]}}" onerror="this.onerror=null;this.src='/logo/0000.png';" loading="lazy" decoding="async" style="width:60%" >
         </button>
       </td>
       <!-- Number -->

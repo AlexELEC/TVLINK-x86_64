@@ -24,15 +24,8 @@
     % rowID = 'row_' + row[0]
     <tr id="{{rowID}}" >
       <!-- Logo -->
-      <%
-        import os, sys
-        root_dir = os.path.dirname(sys.argv[0])
-        sys.path.append(root_dir)
-        from utils import get_logo
-        logo_url = get_logo(row[0], srcName)
-      %>
       <td bgcolor="2C3E50">
-        <img src="{{logo_url}}" onerror="this.onerror=null;this.src='https://placehold.co/256x256/403838/FFFFFF/png?text=EMPTY';" style="border:0;width:45%;" >
+        <img src="/logo_proxy/{{row[0]}}/{{srcName}}" onerror="this.onerror=null;this.src='/logo/0000.png';" loading="lazy" decoding="async" style="border:0;width:45%;" >
       </td>
       <!-- Map -->
       <td>
