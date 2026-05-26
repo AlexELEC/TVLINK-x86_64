@@ -294,7 +294,7 @@
   </div>
 
   <p>&nbsp;</p>
-  <label><b>Empty channel link</b></label>
+  <label><b>Empty channel link (optional; only live-Stream)</b></label>
   <form class="form-inline" >
     <input id="empty_chlink" class="form-control" size="100%" value="{{empty_chlink}}" onchange="server.set_empty_chlink()">
   </form>

@@ -90,7 +90,7 @@
   <table class="table" width="100%" border="2" id="m3u_table" style={{"display:block" if checked_m3u == 1 and is_m3u else "display:none"}} >
 
     <tr>
-      <th width="4%" >Name</th>
+      <th width="7%" >Name</th>
       <th width="2%" >Catchup</th>
       <th width="1%" >Enable</th> 
       <th width="2%" >Prio</th>
@@ -214,7 +214,7 @@
   <table class="table" width="100%" border="2" id="addon_table" style={{"display:block" if checked_addon == 1 and is_addon else "display:none"}} >
 
     <tr>
-      <th width="4%" >Name</th>
+      <th width="7%" >Name</th>
       <th width="2%" >Enable</th> 
       <th width="2%" >Prio</th>
       <th width="2%" >Limit</th>
@@ -328,7 +328,7 @@
   <table class="table" width="100%" border="2" id="pottal_table" style={{"display:block" if checked_portal == 1 and is_portal else "display:none"}} >
 
     <tr>
-      <th width="4%" >Name</th>
+      <th width="7%" >Name</th>
       <th width="2%" >Enable</th> 
       <th width="2%" >Prio</th>
       <th width="2%" >Limit</th>
@@ -442,7 +442,7 @@
   <table class="table" width="100%" border="2" id="ace_table" style={{"display:block" if checked_ace == 1 and is_acestream else "display:none"}} >
 
     <tr>
-      <th width="4%" >Name</th>
+      <th width="7%" >Name</th>
       <th width="2%" >Enable</th> 
       <th width="2%" >Prio</th>
       <th width="2%" >Limit</th>

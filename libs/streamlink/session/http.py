@@ -49,7 +49,15 @@ if TYPE_CHECKING:
     from requests import PreparedRequest
 
 
-_original_allowed_gai_family = urllib3_util_connection.allowed_gai_family  # type: ignore[attr-defined]
+_original_allowed_gai_family = urllib3_util_connection.allowed_gai_family
+
+
+def allowed_gai_family_inet() -> socket.AddressFamily:
+    return socket.AF_INET
+
+
+def allowed_gai_family_inet6() -> socket.AddressFamily:
+    return socket.AF_INET6
 
 
 # urllib3>=2.0.0: enforce_content_length now defaults to True (keep the override for backwards compatibility)
@@ -106,7 +114,7 @@ class Urllib3UtilUrlPercentReOverride:
 
 
 # urllib3>=2.0.0: _PERCENT_RE, urllib3<2.0.0: PERCENT_RE
-urllib3.util.url._PERCENT_RE = urllib3.util.url.PERCENT_RE = Urllib3UtilUrlPercentReOverride  # type: ignore[attr-defined]
+urllib3.util.url._PERCENT_RE = urllib3.util.url.PERCENT_RE = Urllib3UtilUrlPercentReOverride  # type: ignore[assignment, ty:invalid-assignment]
 
 
 # requests.Request.__init__ keywords, except for "hooks"
@@ -185,11 +193,11 @@ class HTTPSession(Session):
     # noinspection PyMethodMayBeStatic
     def set_address_family(self, family: socket.AddressFamily | None = None) -> None:
         if family is None:
-            urllib3_util_connection.allowed_gai_family = _original_allowed_gai_family  # type: ignore[attr-defined]
+            urllib3_util_connection.allowed_gai_family = _original_allowed_gai_family
         elif family == socket.AF_INET:
-            urllib3_util_connection.allowed_gai_family = lambda: socket.AF_INET  # type: ignore[attr-defined]
+            urllib3_util_connection.allowed_gai_family = allowed_gai_family_inet  # type: ignore[ty:invalid-assignment]
         elif family == socket.AF_INET6:  # pragma: no branch
-            urllib3_util_connection.allowed_gai_family = lambda: socket.AF_INET6  # type: ignore[attr-defined]
+            urllib3_util_connection.allowed_gai_family = allowed_gai_family_inet6  # type: ignore[ty:invalid-assignment]
 
     def disable_dh(self, disable: bool = True) -> None:
         adapter: HTTPAdapter
@@ -246,8 +254,8 @@ class HTTPSession(Session):
         acceptable_status = kwargs.pop("acceptable_status", [])
         encoding = kwargs.pop("encoding", None)
         exception = kwargs.pop("exception", PluginError)
-        headers = kwargs.pop("headers", {})
-        params = kwargs.pop("params", {})
+        headers = kwargs.pop("headers", None) or {}
+        params = kwargs.pop("params", None) or {}
         proxies = kwargs.pop("proxies", self.proxies)
         raise_for_status = kwargs.pop("raise_for_status", True)
         schema = kwargs.pop("schema", None)
