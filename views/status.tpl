@@ -48,7 +48,7 @@
 <body>
   % include('navbar-top.tpl')
 
-  <table width="85%" style="position:fixed">
+  <table width="95%" style="position:fixed">
     <tr>
       <td width="30%" align="right"><b><font color="blue" >Refresh page (sec):&nbsp;&nbsp;</font></b></td>
       <td width="1%" align="right"><select id="rtime" class="form-control" width="10%" onchange="resetRefresh()" >

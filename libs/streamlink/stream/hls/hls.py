@@ -998,7 +998,7 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
         self.playlist_reload_retries = self.session.options.get("hls-playlist-reload-attempts")
         self.segment_queue_timing_threshold_factor = self.session.options.get("hls-segment-queue-threshold")
         self.live_edge = self.session.options.get("hls-live-edge")
-        self.duration_offset_start = int(self.stream.start_offset + (self.session.options.get("hls-start-offset") or 0))
+        self.duration_offset_start = float(self.stream.start_offset + (self.session.options.get("hls-start-offset") or 0.0))
         self.hls_live_restart = self.stream.force_restart or self.session.options.get("hls-live-restart")
         self.hls_stream_data = self.session.options.get("hls-segment-stream-data")
         self.hls_segments_queue = self.session.options.get("segments-queue")
@@ -1983,18 +1983,18 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
     @staticmethod
     def duration_to_sequence(duration: float, segments: list[HLSSegment]) -> int:
         d = 0.0
-        default = -1
+        sequence = -1
 
-        segments_order = segments if duration >= 0 else reversed(segments)
+        segments_order = segments if duration >= 0.0 else reversed(segments)
+        duration = abs(duration)
 
         for segment in segments_order:
-            if d >= abs(duration):
-                return segment.num
+            sequence = segment.num
+            if d >= duration:
+                break
             d += segment.duration
-            default = segment.num
 
-        # could not skip far enough, so return the default
-        return default
+        return sequence
 
     def iter_segments(self):
         self.playlist_sequence_last = now()
@@ -2010,12 +2010,12 @@ class HLSStreamWorker(SegmentedStreamWorker[HLSSegment, Response]):
         self.playlist_reload_last = now()
 
         if self.playlist_end is None:
-            if self.duration_offset_start > 0:
+            if self.duration_offset_start > 0.0:
                 log.debug(f"{self.client_info}: Time offsets negative for live streams, skipping back {self.duration_offset_start} seconds")
             # live playlist, force offset durations back to None
             self.duration_offset_start = -self.duration_offset_start
 
-        if self.duration_offset_start != 0:
+        if self.duration_offset_start:
             self.playlist_sequence = self.duration_to_sequence(self.duration_offset_start, self.playlist_segments)
 
         # if VOD-local is active, move the pointer to the desired segment
@@ -2933,7 +2933,7 @@ class HLSStream(HTTPStream):
         multivariant: M3U8 | None = None,
         name: str | None = None,
         force_restart: bool = False,
-        start_offset: float = 0,
+        start_offset: float = 0.0,
         **kwargs,
     ):
         """
@@ -3046,7 +3046,7 @@ class HLSStream(HTTPStream):
         check_streams: bool | Literal["playlists", "segments"] = False,
         force_restart: bool = False,
         name_fmt: str | None = None,
-        start_offset: float = 0,
+        start_offset: float = 0.0,
         **kwargs,
     ) -> dict[str, Self | MuxedHLSStream[Self]]:
         """

@@ -12,6 +12,103 @@
     function modalClose(winID) {
         document.getElementById(winID).style.display = "none";
     }
+
+    function setBackupStatus(text, isError) {
+        var status = document.getElementById("backup_status");
+        status.innerHTML = text;
+        status.style.color = isError ? "red" : "green";
+    }
+
+    function setDeleteBackupsStatus(text, isError) {
+        var status = document.getElementById("delete_backups_status");
+        status.innerHTML = text;
+        status.style.color = isError ? "red" : "green";
+    }
+
+    function setDeleteBackupsVisible(isVisible) {
+        var button = document.getElementById("btn_delete_backups");
+        button.style.display = isVisible ? "inline-block" : "none";
+    }
+
+    function createBackup() {
+        var button = document.getElementById("btn_create_backup");
+        var link = document.getElementById("backup_download");
+        button.disabled = true;
+        link.style.display = "none";
+        setBackupStatus("Creating backup...", false);
+        setDeleteBackupsStatus("", false);
+
+        fetch("/backup/create", {method: "POST"})
+          .then(function(response) {
+              return response.json().then(function(data) {
+                  if (!response.ok || data.status !== "ok") {
+                      throw new Error(data.error || "Backup failed");
+                  }
+                  return data;
+              });
+          })
+          .then(function(data) {
+              link.href = data.url;
+              link.innerHTML = '<i class="fa fa-download"></i> Download ' + data.filename;
+              link.style.display = "inline-block";
+              setBackupStatus("Backup created.", false);
+              setDeleteBackupsVisible(true);
+          })
+          .catch(function(error) {
+              setBackupStatus(error.message, true);
+          })
+          .finally(function() {
+              button.disabled = false;
+          });
+    }
+
+    function deleteBackups() {
+        if (!confirm("Delete all created TVLINK backups?")) {
+            return;
+        }
+
+        var button = document.getElementById("btn_delete_backups");
+        var link = document.getElementById("backup_download");
+        button.disabled = true;
+        setDeleteBackupsStatus("Deleting backups...", false);
+
+        fetch("/backup/delete", {method: "POST"})
+          .then(function(response) {
+              return response.json().then(function(data) {
+                  if (!response.ok || data.status !== "ok") {
+                      throw new Error(data.error || "Delete backups failed");
+                  }
+                  return data;
+              });
+          })
+          .then(function(data) {
+              link.style.display = "none";
+              setBackupStatus("", false);
+              setDeleteBackupsVisible(false);
+              setDeleteBackupsStatus("Backups deleted.", false);
+          })
+          .catch(function(error) {
+              setDeleteBackupsStatus(error.message, true);
+          })
+          .finally(function() {
+              button.disabled = false;
+          });
+    }
+
+    function restoreBackup() {
+        document.getElementById("restore_backup_file").click();
+    }
+
+    function submitRestoreBackup(input) {
+        if (!input.files.length) {
+            return;
+        }
+        if (confirm("Restore TVLINK from selected backup?")) {
+            document.getElementById("restore_backup_form").submit();
+        } else {
+            input.value = "";
+        }
+    }
   </script>
 
     <% tbl_head = '''
@@ -685,6 +782,68 @@
 
     </table>
 
+  </div>
+
+  <!-- Backup/Restore -->
+  <p>&nbsp;</p>
+  <h4><b>Backup/Restore:</b></h4>
+  <p>&nbsp;</p>
+
+  <div style="overflow:hidden;_zoom:1">
+
+    <table class="table" border="2" style="float:left;width:49%;display:block" >
+
+      {{!tbl_head}}
+
+      <tr>
+        <td>
+          <label class="form-control">TVLINK backup</label>
+        </td>
+        <td>
+          <button id="btn_create_backup" type="button" class="btn btn-primary" onClick="createBackup()">
+            <i class="fa fa-archive"></i> Create Backup
+          </button>
+        </td>
+      </tr>
+
+    </table>
+
+    <table class="table" border="2" style="float:right;width:49%;display:block" >
+
+      {{!tbl_head}}
+
+      <tr>
+        <td>
+          <label class="form-control">TVLINK restore</label>
+        </td>
+        <td>
+          <form id="restore_backup_form" action="/backup/restore" method="post" enctype="multipart/form-data" style="display:none;">
+            <input id="restore_backup_file" name="backup_file" type="file" accept=".tar.gz,.tgz,.tar.zg,application/gzip" onchange="submitRestoreBackup(this)">
+          </form>
+          <button id="btn_restore_backup" type="button" class="btn btn-warning" onClick="restoreBackup()">
+            <i class="fa fa-upload"></i> Restore
+          </button>
+        </td>
+      </tr>
+
+    </table>
+
+  </div>
+
+  <div style="overflow:hidden;_zoom:1">
+    <div style="float:left;width:49%;display:block;text-align:center;margin-top:0.75rem;">
+      <a id="backup_download" class="btn btn-success" style="display:none;" href="#">
+        <i class="fa fa-download"></i> Download
+      </a>
+      <div id="backup_status" style="margin-top:0.4rem;font-weight:bold;"></div>
+    </div>
+
+    <div style="float:right;width:49%;display:block;text-align:center;margin-top:0.75rem;">
+      <button id="btn_delete_backups" type="button" class="btn btn-danger" style="{{'display:inline-block;' if has_backups else 'display:none;'}}" onClick="deleteBackups()">
+        <i class="fa fa-trash"></i> Delete backups
+      </button>
+      <div id="delete_backups_status" style="margin-top:0.4rem;font-weight:bold;"></div>
+    </div>
   </div>
 
   <p>&nbsp;</p>
