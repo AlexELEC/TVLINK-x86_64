@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import math
 import logging
+from dataclasses import dataclass
 import re
 import struct
+from struct import unpack
 import contextlib
 import threading
 import time
@@ -25,18 +26,20 @@ from streamlink.logger import getLogger
 from streamlink.stream.ffmpegmux import FFMPEGMuxer, MuxedStream
 from streamlink.stream.filtered import FilteredStream
 from streamlink.stream.hls.m3u8 import M3U8Parser, parse_m3u8
-from streamlink.stream.hls.segment import HLSSegment, StreamInfo
+from streamlink.stream.hls.segment import HLSSegment
 from streamlink.stream.http import HTTPStream
 from streamlink.stream.segmented import SegmentedStreamReader, SegmentedStreamWorker, SegmentedStreamWriter
 from streamlink.utils.cache import LRUCache
 from streamlink.utils.crypto import AES, unpad
 from streamlink.utils.formatter import Formatter
+from streamlink.utils.id3v2 import ID3v2, ID3v2FrameError, parse_frame_priv
 from streamlink.utils.l10n import Language
+from streamlink.utils.thread import wait_for_all_events
 from streamlink.utils.times import now
 
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterator, Mapping
     from concurrent.futures import Future
 
     from typing_extensions import Self
@@ -44,10 +47,33 @@ if TYPE_CHECKING:
     from streamlink.buffers import RingBuffer
     from streamlink.session import Streamlink
     from streamlink.stream.hls.m3u8 import M3U8
-    from streamlink.stream.hls.segment import ByteRange, HLSPlaylist, Key, Map, Media
+    from streamlink.stream.hls.segment import ByteRange, HLSPlaylist, Key, Map
 
 
 log = getLogger(".".join(__name__.split(".")[:-1]))
+
+
+@dataclass
+class ID3v2FrameHLSPackedAudioTimestamp:
+    timestamp: float
+
+
+class ID3v2HLSPackedAudio(ID3v2):
+    @parse_frame_priv(b"com.apple.streaming.transportStreamTimestamp", ID3v2FrameHLSPackedAudioTimestamp)
+    def _parse_frame_priv_com_apple_streaming_transport_stream_timestamp(self, owner: bytes, data: bytearray):
+        if len(data) != 8:
+            raise ID3v2FrameError(f"Invalid data size for PRIV frame {owner.decode('ascii')}")
+        if data[0] & 0xFF or data[1] & 0xFF or data[2] & 0xFF or data[3] & 0xFE:
+            raise ID3v2FrameError(f"Invalid timestamp value for PRIV frame {owner.decode('ascii')}")
+        return unpack(">Q", data)[0] & 0x1FFFFFFFF
+
+
+def get_packed_audio_timestamp(tags: list[ID3v2HLSPackedAudio]) -> float | None:
+    return next((
+        frame.result.timestamp / 90000.0
+        for tag in tags for frame in tag.frames
+        if type(frame.result) is ID3v2FrameHLSPackedAudioTimestamp
+    ), None)
 
 
 # --- Minimal noise filter: drop "Closing worker/writer thread" messages (substring match) when enabled ---
@@ -162,7 +188,7 @@ class HLSStreamWriter(SegmentedStreamWriter[HLSSegment, Response]):
         )
 
         self.ignore_names: re.Pattern | None = None
-        ignore_names = {*options.get("hls-segment-ignore-names")}
+        ignore_names: set[str] = {*options.get("hls-segment-ignore-names")}
         if ignore_names:
             segments = "|".join(map(re.escape, ignore_names))
             self.ignore_names = re.compile(segments, re.IGNORECASE)
@@ -514,6 +540,33 @@ class HLSStreamWriter(SegmentedStreamWriter[HLSSegment, Response]):
                 log.warning(f"{self.client_info} Filtering out segments and pausing stream output")
                 self.reader.pause()
 
+    def _write_into_buffer(self, iterator):
+        if self.stream.parse_packed_audio:
+            iterator = self._parse_packed_audio_timestamp(iterator)
+
+        buffer = self.reader.buffer
+        for chunk in iterator:
+            if self._fast_abort_event.is_set():
+                return
+            buffer.write(chunk)
+
+    def _parse_packed_audio_timestamp(self, iterator):
+        tags, iterator = ID3v2HLSPackedAudio.parse_tags(iterator)
+
+        if not tags:
+            self.stream.parse_packed_audio = False
+        elif self.stream.packed_audio_timestamp is None and (timestamp := get_packed_audio_timestamp(tags)):
+            self.stream.packed_audio_timestamp = timestamp
+
+        return iterator
+
+    # noinspection PyMethodMayBeStatic
+    def get_segment_content(self, segment: HLSSegment, response: Response) -> bytes:
+        return segment.get_content(response)
+
+    def iter_segment_content(self, segment: HLSSegment, response: Response) -> Iterator[bytes]:
+        yield from segment.iter_content(response, self.chunk_size)
+
     def _write(self, segment: HLSSegment, result: Response | bytes, is_map: bool):
         if self._fast_abort_event.is_set():
             return
@@ -622,10 +675,7 @@ class HLSStreamWriter(SegmentedStreamWriter[HLSSegment, Response]):
                             if last_dec:
                                 dec_chunks.append(last_dec)
                         # On success, write decrypted chunks one by one (avoid an extra big copy)
-                        for dec in dec_chunks:
-                            if self._fast_abort_event.is_set():
-                                return
-                            self.reader.buffer.write(dec)
+                        self._write_into_buffer(iter(dec_chunks))
                     finally:
                         # Help GC drop large references ASAP
                         try:
@@ -650,7 +700,7 @@ class HLSStreamWriter(SegmentedStreamWriter[HLSSegment, Response]):
                         except Exception:
                             pass
                         bytes_have = 0
-                    for chunk in result.iter_content(self.chunk_size):
+                    for chunk in self.iter_segment_content(segment, result):
                         # Abort as soon as possible between chunks
                         if self._fast_abort_event.is_set():
                             return
@@ -660,10 +710,7 @@ class HLSStreamWriter(SegmentedStreamWriter[HLSSegment, Response]):
                         bytes_have += len(chunk)
                     # On success, write all collected chunks individually (no extra big copy)
                     if temp_plain_chunks:
-                        for ch in temp_plain_chunks:
-                            if self._fast_abort_event.is_set():
-                                return
-                            self.reader.buffer.write(ch)
+                        self._write_into_buffer(iter(temp_plain_chunks))
                         # Explicitly release large chunk list
                         try:
                             temp_plain_chunks.clear()
@@ -2908,6 +2955,18 @@ class MuxedHLSStream(MuxedStream[TMuxedHLSStream_co]):
         super().__init__(session, *substreams, format="mpegts", maps=maps, **ffmpeg_options)
         self.multivariant = multivariant if multivariant and multivariant.is_master else None
 
+    def _open_streams(self):
+        fds = super()._open_streams()
+        timeout = self.session.options.get("stream-timeout")
+        wait_for_all_events(*[fd.buffer.event_used for fd in fds], timeout=timeout)
+
+        itsoffset = [substream.packed_audio_timestamp for substream in self.substreams[1:]]
+        if any(o for o in itsoffset if o is not None):
+            self.options["itsoffset"] = [None, *itsoffset]
+            self.options["copyts"] = True
+
+        return fds
+
     def to_manifest_url(self):
         url = self.multivariant.uri if self.multivariant and self.multivariant.uri else None
 
@@ -2952,6 +3011,8 @@ class HLSStream(HTTPStream):
         self.force_restart = force_restart
         self.start_offset = start_offset
         self.reader = self.__reader__(self, name=self.name)
+        self.parse_packed_audio: bool = True
+        self.packed_audio_timestamp: float | None = None
 
     def __json__(self):  # noqa: PLW3201
         json = super().__json__()
@@ -3093,7 +3154,6 @@ class HLSStream(HTTPStream):
             with contextlib.suppress(Exception):
                 res.close()
 
-        stream_name: str | None
         stream: Self | MuxedHLSStream[Self]
         streams: dict[str, Self | MuxedHLSStream[Self]] = {}
         client_info = session.options.get("client-info")
@@ -3103,94 +3163,9 @@ class HLSStream(HTTPStream):
             if playlist.is_iframe:
                 continue
 
-            names: dict[str, str | None] = dict(name=None, pixels=None, bitrate=None)
-            audio_streams = []
-            fallback_audio: list[Media] = []
-            default_audio: list[Media] = []
-            preferred_audio: list[Media] = []
-
-            for media in playlist.media:
-                if media.type == "VIDEO" and media.name:
-                    names["name"] = media.name
-                elif media.type == "AUDIO":
-                    audio_streams.append(media)
-
-            for media in audio_streams:
-                # Media without a URI is not relevant as external audio
-                if not media.uri:
-                    continue
-
-                if not fallback_audio and media.default:
-                    fallback_audio = [media]
-
-                # if the media is "autoselect" and it better matches the users preferences, use that
-                # instead of default
-                if not default_audio and (media.autoselect and locale.equivalent(language=media.parsed_language)):
-                    default_audio = [media]
-
-                # select the first audio stream that matches the user's explict language selection
-                if (
-                    # user has selected all languages
-                     audio_select_any
-                     # compare plain language codes first
-                     or (
-                         media.language is not None
-                         and media.language in audio_select_codes
-                     )
-                     # then compare parsed language codes and user input
-                     or (
-                         media.parsed_language is not None
-                         and media.parsed_language in audio_select_langs
-                    )
-                    # then compare media name attribute
-                     or (
-                         media.name
-                         and media.name.lower() in audio_select_codes
-                     )
-                    # fallback: find first media playlist matching the user's locale
-                    or (
-                        (not preferred_audio or media.default)
-                        and locale.explicit
-                        and locale.equivalent(language=media.parsed_language)
-                    )
-                ):
-                    preferred_audio.append(media)
-
-            # final fallback on the first audio stream listed
-            if not fallback_audio and audio_streams and audio_streams[0].uri:
-                fallback_audio = [audio_streams[0]]
-
-            if playlist.stream_info.resolution and playlist.stream_info.resolution.height:
-                if (
-                    isinstance(playlist.stream_info, StreamInfo)
-                    and playlist.stream_info.framerate is not None
-                    and playlist.stream_info.framerate > 30.0
-                ):
-                    names["pixels"] = f"{playlist.stream_info.resolution.height}p{math.ceil(playlist.stream_info.framerate)}"
-                else:
-                    names["pixels"] = f"{playlist.stream_info.resolution.height}p"
-
-            if playlist.stream_info.bandwidth:
-                bw = playlist.stream_info.bandwidth
-                if bw >= 1000:
-                    names["bitrate"] = f"{int(bw / 1000.0)}k"
-                else:
-                    names["bitrate"] = f"{bw / 1000.0}k"
-
-            if name_fmt:
-                stream_name = name_fmt.format(**names)
-            else:
-                stream_name = (
-                    names.get(name_key)
-                    or names.get("name")
-                    or names.get("pixels")
-                    or names.get("bitrate")
-                )
-
+            stream_name = playlist.get_name(key=name_key, fmt=name_fmt, prefix=name_prefix)
             if not stream_name:
                 continue
-            if name_prefix:
-                stream_name = f"{name_prefix}{stream_name}"
 
             if stream_name in streams:  # rename duplicate streams
                 stream_name = f"{stream_name}_alt"
@@ -3213,7 +3188,12 @@ class HLSStream(HTTPStream):
                 if not check_streams_success:
                     continue
 
-            external_audio = preferred_audio or default_audio or fallback_audio
+            external_audio = playlist.get_external_audio(
+                locale=locale,
+                any_language=audio_select_any,
+                languages=audio_select_langs,
+                codes=audio_select_codes,
+            )
 
             if external_audio and FFMPEGMuxer.is_usable(session):
                 external_audio_msg = ", ".join([
@@ -3222,7 +3202,8 @@ class HLSStream(HTTPStream):
                 ])
                 log.info(f"{client_info} Start ffmpeg muxer: using external audio tracks for stream {stream_name} {external_audio_msg}")
 
-                stream = MuxedHLSStream(
+                # TODO: py310 support end: from typing import Self (runtime)
+                stream = MuxedHLSStream["Self"](
                     session,
                     video=playlist.uri,
                     audio=[x.uri for x in external_audio if x.uri],

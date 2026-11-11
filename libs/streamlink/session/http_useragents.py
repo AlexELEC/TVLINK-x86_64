@@ -1,20 +1,20 @@
-ANDROID = "Mozilla/5.0 (Linux; Android 17) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.175 Mobile Safari/537.36"
-CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
-CHROME_OS = "Mozilla/5.0 (X11; CrOS x86_64 16733.57.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.221 Safari/537.36"
-FIREFOX = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:154.0) Gecko/20100101 Firefox/154.0"
+ANDROID = "Mozilla/5.0 (Linux; Android 17) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.75 Mobile Safari/537.36"
+CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+CHROME_OS = "Mozilla/5.0 (X11; CrOS x86_64 16836.30.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.77 Safari/537.36"
+FIREFOX = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:159.0) Gecko/20100101 Firefox/159.0"
 IE_11 = "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
-IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1"
-OPERA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36 OPR/136.0.0.0"
-SAFARI = "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_9) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
+IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1"
+OPERA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 OPR/140.0.0.0"
+SAFARI = "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_8_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Safari/605.1.15"
 
 ANDROID_VERSION = (17,)
-CHROME_VERSION = (151, 0, 7922, 176)
-CHROME_OS_VERSION = (151, 0, 7922, 221)
-FIREFOX_VERSION = (154, 0, 1)
+CHROME_VERSION = (156, 0, 8078, 76)
+CHROME_OS_VERSION = (156, 0, 8078, 77)
+FIREFOX_VERSION = (159, 0)
 IE_11_VERSION = (11,)
-IPHONE_VERSION = (18, 7, 8)
-OPERA_VERSION = (136, 0, 6001, 0)
-SAFARI_VERSION = (26,)
+IPHONE_VERSION = (18, 7, 11)
+OPERA_VERSION = (140, 0, 6058, 0)
+SAFARI_VERSION = (27,)
 
 # Backwards compatibility
 EDGE = CHROME

@@ -50,6 +50,11 @@
         </div>
         <div class="modal-body">
           <input type="hidden" id="epgPickerChannelID" value="">
+          <input type="text"
+            id="epgPickerSearch"
+            class="form-control mb-2"
+            placeholder="Search channel EPG..."
+            autocomplete="off">
           <select id="epgPickerSelect" class="form-control">
             {{!dataEpgTitles}}
           </select>
@@ -85,8 +90,40 @@
 
         document.getElementById('epgPickerChannelID').value = chID;
         document.getElementById('epgPickerSelect').value = currentValue;
+        document.getElementById('epgPickerSearch').value = '';
+        document.getElementById('epgPickerSearch').focus();
         document.getElementById('epgPickerModal').style.display = 'block';
     }
+
+    (function() {
+        var search = document.getElementById('epgPickerSearch');
+        var select = document.getElementById('epgPickerSelect');
+
+        search.addEventListener('input', function() {
+            var prefix = this.value
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toLocaleLowerCase();
+
+            if (!prefix) {
+                return;
+            }
+
+            var options = select.options;
+
+            for (var i = 0; i < options.length; i++) {
+                var text = options[i].text
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .toLocaleLowerCase();
+
+                if (text.indexOf(prefix) === 0) {
+                    select.selectedIndex = i;
+                    return;
+                }
+            }
+        });
+    })();
 
     function closeEpgPicker() {
         document.getElementById('epgPickerTitle').textContent = 'Manual EPG mapping';

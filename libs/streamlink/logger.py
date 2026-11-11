@@ -12,7 +12,6 @@ from typing import IO, TYPE_CHECKING, Literal, TextIO
 # noinspection PyProtectedMember
 from warnings import WarningMessage
 
-from streamlink.exceptions import StreamlinkWarning
 from streamlink.utils.times import fromlocaltimestamp
 
 
@@ -186,8 +185,8 @@ class WarningLogRecord(logging.LogRecord):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.name = "warnings"
-        self.levelname = self.msg.category.__name__ if self.msg.category else UserWarning.__name__
+        categoryname = (self.msg.category.__name__ if self.msg.category else UserWarning.__name__).lower()
+        self.name = categoryname.removesuffix("warning") if categoryname.startswith("streamlink") else categoryname
         self.pathname = self.msg.filename
         self._path = Path(self.pathname)
         self.filename = self._path.name
@@ -195,9 +194,7 @@ class WarningLogRecord(logging.LogRecord):
         self.lineno = self.msg.lineno
 
     def getMessage(self) -> str:
-        if self.msg.category and issubclass(self.msg.category, StreamlinkWarning):
-            return f"{self.msg.message}"
-        return f"{self.msg.message}\n  {self.pathname}:{self.lineno}"
+        return f"{self.msg.message}{f' ({self.pathname}:{self.lineno})' if root.level <= DEBUG else ''}"
 
 
 def _log_record_factory(name, level, fn, lno, msg, args, exc_info, func=None, sinfo=None, **kwargs):
@@ -269,6 +266,7 @@ def basicConfig(
             )
             handler.setFormatter(formatter)
 
+            root.removeHandler(_nullhandler)
             root.addHandler(handler)
 
         if level is not None:
@@ -284,12 +282,14 @@ _showwarning_default: Callable[[Warning | str, type[Warning], str, int, TextIO |
 _log_record_factory_default = logging.getLogRecordFactory()
 logging.setLogRecordFactory(_log_record_factory)
 
+_nullhandler = logging.NullHandler()
 
 # Keep `logging.setLoggerClass(StreamlinkLogger)` for backward compatibility:
 # Third party plugins could create a logger from `logging.getLogger()` and then call custom `StreamlinkLogger` methods,
 # assuming of course that no one else has changed the logger-class on the manager or the global logging module value.
 logging.setLoggerClass(StreamlinkLogger)
 root: StreamlinkLogger = _get_child(logging.root, "streamlink")
+root.addHandler(_nullhandler)
 root.setLevel(WARNING)
 
 levels = list(_levelToNames.values())

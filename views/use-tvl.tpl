@@ -5,9 +5,12 @@
   <p>&nbsp;</p>
 
   <script>
-    function nextStream(chTitle, chID, client) {
-        if (confirm(chTitle + ": switch to next stream?")) {
-            server.next_channel(chID, client);
+    function streamAction(chTitle, chID, client, action) {
+        var prompt = action === "Empty"
+            ? chTitle + ": insert Empty Channel once?"
+            : chTitle + ": switch to next stream?";
+        if (confirm(prompt)) {
+            server.next_channel(chID, client, action);
             location.reload(true);
         }
     }
@@ -34,7 +37,15 @@
     <tr>
       <!-- Client -->
       <td>
-        <label>{{client}}  </label><button title="Next stream" class="btn" onClick='nextStream("{{chTitle}}", "{{chID}}", "{{client}}")' ><i class="fa fa-forward fa-border" style="font-size:16px;color:red" ></i></button>
+        <label>{{client}}</label>
+          <button title="Next stream" class="btn" onClick='streamAction("{{chTitle}}", "{{chID}}", "{{client}}", "Next")' >
+            <i class="fa fa-forward fa-border" style="font-size:16px;color:red" ></i>
+          </button>
+          % if chSource != "NoSource":
+          <button title="Insert Empty Channel" class="btn" onClick='streamAction("{{chTitle}}", "{{chID}}", "{{client}}", "Empty")' >
+            <i class="fa fa-repeat fa-border" style="font-size:16px;color:blue" ></i>
+          </button>
+          % end
       </td>
       <!-- Channel -->
       <td>

@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, cast
 import requests.adapters
 import urllib3
 import urllib3.util.connection as urllib3_util_connection
-from urllib.parse import urlparse
+from urllib.parse import urljoin
 from requests import Request, Session
 from requests.adapters import HTTPAdapter
 
@@ -106,15 +106,17 @@ class Urllib3UtilUrlPercentReOverride:
         getattr(urllib3.util.url, "PERCENT_RE", re.compile(r"%[a-fA-F0-9]{2}")),
     )
 
+    def __getattr__(self, item):
+        return getattr(self._re_percent_encoding, item)
+
     # urllib3>=1.25.8
     # https://github.com/urllib3/urllib3/blame/1.25.8/src/urllib3/util/url.py#L219-L227
-    @classmethod
-    def subn(cls, repl: Any, string: str, count: Any = None) -> tuple[str, int]:
-        return string, len(cls._re_percent_encoding.findall(string))
+    def subn(self, repl: Any, string: str, count: Any = None) -> tuple[str, int]:
+        return string, len(self._re_percent_encoding.findall(string))
 
 
 # urllib3>=2.0.0: _PERCENT_RE, urllib3<2.0.0: PERCENT_RE
-urllib3.util.url._PERCENT_RE = urllib3.util.url.PERCENT_RE = Urllib3UtilUrlPercentReOverride  # type: ignore[assignment, ty:invalid-assignment]
+urllib3.util.url._PERCENT_RE = urllib3.util.url.PERCENT_RE = Urllib3UtilUrlPercentReOverride()
 
 
 # requests.Request.__init__ keywords, except for "hooks"
@@ -303,7 +305,7 @@ class HTTPSession(Session):
                         if new_url and not url == new_url:
                             if redirects < redirects_max:
                                 if not new_url.startswith("http"):
-                                    new_url = f"{urlparse(url).scheme}://{urlparse(url).netloc}{new_url}"
+                                    new_url = urljoin(url, new_url)
                                 #log.debug(f"* Redirect to: {new_url}")
                                 url = new_url
                                 redirects += 1
