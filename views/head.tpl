@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="/styles/theme.js?v=theme-1"></script>
   <link rel="stylesheet" href="/styles/font-awesome/css/font-awesome.min.css" type="text/css">
   <link rel="stylesheet" href="/styles/bootstrap-4.3.1.css">
-  <link rel="stylesheet" href="/styles/styles.css?v=responsive-3" type="text/css">
+  <link rel="stylesheet" href="/styles/styles.css?v=theme-3" type="text/css">
   <link rel="shortcut icon" href="/styles/favicon.ico">
   <script>
     document.addEventListener("DOMContentLoaded", function () {

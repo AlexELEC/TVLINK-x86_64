@@ -111,7 +111,7 @@
       % ids = f'hrf_{srcName}'
       % shortName = srcName.replace("m3u_", "")
         <td>
-          <a id={{ids}} {{f'href=/inputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{shortName}}</a>
+          <a id={{ids}} class="{{'source-name source-name--disabled' if row[1] != 1 else 'source-name'}}" {{f'href=/inputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{shortName}}</a>
           <button class="btn" onClick="server.show_src_conf('{{srcName}}')" ><i class="fa fa-wrench" style="font-size:26px;color:{{options_dist[srcName]}}" ></i></button>
           <button class="btn" onClick="delSource('{{srcName}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
@@ -233,7 +233,7 @@
       % srcName = row[0]
       % ids = f'hrf_{srcName}'
         <td>
-          <a id={{ids}} {{f'href=/inputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
+          <a id={{ids}} class="{{'source-name source-name--disabled' if row[1] != 1 else 'source-name'}}" {{f'href=/inputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
           <button class="btn" onClick="server.show_src_conf('{{srcName}}')" ><i class="fa fa-wrench" style="font-size:26px;color:{{options_dist[srcName]}}" ></i></button>
           <button class="btn" onClick="delAddon('{{srcName}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
@@ -347,7 +347,7 @@
       % srcName = row[0]
       % ids = f'hrf_{srcName}'
         <td>
-          <a id={{ids}} {{f'href=/inputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
+          <a id={{ids}} class="{{'source-name source-name--disabled' if row[1] != 1 else 'source-name'}}" {{f'href=/inputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
           <button class="btn" onClick="server.show_src_conf('{{srcName}}')" ><i class="fa fa-wrench" style="font-size:26px;color:{{options_dist[srcName]}}" ></i></button>
           <button class="btn" onClick="delAddon('{{srcName}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
@@ -461,7 +461,7 @@
       % srcName = row[0]
       % ids = f'hrf_{srcName}'
         <td>
-          <a id={{ids}} {{f'href=/inputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
+          <a id={{ids}} class="{{'source-name source-name--disabled' if row[1] != 1 else 'source-name'}}" {{f'href=/inputs/{srcName}' if row[1] == 1 and row[8] > 0 else ""}} >{{srcName}}</a>
           <button class="btn" onClick="server.show_src_conf('{{srcName}}')" ><i class="fa fa-wrench" style="font-size:26px;color:{{options_dist[srcName]}}" ></i></button>
           <button class="btn" onClick="delAddon('{{srcName}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
         </td>
@@ -622,7 +622,7 @@
       % srcName = row[0]
       % ids = f'hrf_{srcName}'
       <td>
-        <a id={{ids}} {{f'href=/epginputs/{srcName}' if row[1] == 1 and row[7] > 0 else ""}} >{{srcName}}</a>
+        <a id={{ids}} class="{{'source-name source-name--disabled' if row[1] != 1 else 'source-name'}}" {{f'href=/epginputs/{srcName}' if row[1] == 1 and row[7] > 0 else ""}} >{{srcName}}</a>
         <button class="btn" onClick="server.show_edit_epg('{{srcName}}')" ><i class="fa fa-wrench" style="font-size:26px;color:blue" ></i></button>
         <button class="btn" onClick="delEpgSource('{{srcName}}')" ><i class="fa fa-trash-o" style="font-size:26px;color:red" ></i></button>
       </td>

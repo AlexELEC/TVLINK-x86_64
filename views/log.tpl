@@ -6,14 +6,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Cache-control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
+  <script src="/styles/theme.js?v=theme-1"></script>
   <link rel="stylesheet" href="/styles/font-awesome/css/font-awesome.min.css" type="text/css">
   <link rel="stylesheet" href="/styles/bootstrap-4.3.1.css">
-  <link rel="stylesheet" href="/styles/styles.css" type="text/css">
+  <link rel="stylesheet" href="/styles/styles.css?v=theme-3" type="text/css">
   <link rel="shortcut icon" href="/styles/favicon.ico">
-  <script src="/styles/jquery.min.js">
+  <script src="/styles/jquery.min.js"></script>
 
   <script>
     var logVal;
+    var refreshStorageKey = "tvlink-refresh-interval";
+
+    function getSavedRefreshInterval() {
+      try {
+        var value = parseInt(window.localStorage.getItem(refreshStorageKey), 10);
+        if (value >= 0 && value <= 30) {
+          return value;
+        }
+      } catch (error) {
+        // Use the default when browser storage is unavailable.
+      }
+      return 5;
+    }
+
+    function saveRefreshInterval(value) {
+      try {
+        window.localStorage.setItem(refreshStorageKey, String(value));
+      } catch (error) {
+        // Refreshing still works when browser storage is unavailable.
+      }
+    }
 
     function setRefresh(updTime) {
       logVal = setInterval(function(){
@@ -22,7 +44,8 @@
     }
 
     function resetRefresh() {
-      updTime = document.getElementById("ltime").value;
+      var updTime = parseInt(document.getElementById("ltime").value, 10);
+      saveRefreshInterval(updTime);
       clearInterval(logVal);
       if (updTime > 0){
         setRefresh(updTime * 1000)
@@ -33,8 +56,11 @@
       // load log file
       $("#logger").load("/logger/tvlink.log");
 
-      // Then reload it every 5 seconds ...
-      setRefresh(5000);
+      var refreshInterval = getSavedRefreshInterval();
+      document.getElementById("ltime").value = refreshInterval;
+      if (refreshInterval > 0) {
+        setRefresh(refreshInterval * 1000);
+      }
     });
   </script>
 
